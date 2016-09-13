@@ -1,0 +1,8 @@
+language: java
+
+jdk:
+- oraclejdk7
+
+script: mvn test
+
+after_failure: cp ./target/surefile_reports $CODING_ARCHIVE_DIR/

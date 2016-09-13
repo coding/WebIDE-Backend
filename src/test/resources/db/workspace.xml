@@ -1,0 +1,45 @@
+<!--
+  ~ Copyright (c) 2014-2016 CODING.
+  -->
+
+<dataset>
+    <T_PROJECT F_ID="0"
+               F_NAME="prj0"
+               F_ICON_URL="https://dn-coding-net-production-static.qbox.me/f7462ebf-82e9-40f2-b466-06f0297bd479.jpg"
+               F_GIT_URL="git://coding.net/duwan/coding-ide.git"
+               F_SSH_URL="git@coding.net:duwan/coding-ide.git"
+               F_HTTPS_URL="https://coding.net/duwan/coding-ide.git"
+               F_OWNER_NAME="duwan"
+               />
+
+    <T_WORKSPACE F_ID="0"
+                 F_PROJECT_ID="0"
+                 F_SPACE_KEY="qwertu"
+                 F_WORKING_STATUS="Deleted"
+                 F_CREATED_AT="2015-12-16 13:15:42"/>
+
+    <T_WORKSPACE F_ID="1"
+                 F_PROJECT_ID="0"
+                 F_SPACE_KEY="qwerty"
+                 F_WORKING_STATUS="Online"
+                 F_CREATED_AT="2015-12-16 13:15:43"/>
+
+    <T_WORKSPACE F_ID="2"
+                 F_PROJECT_ID="0"
+                 F_SPACE_KEY="aasdfg"
+                 F_WORKING_STATUS="Online"
+                 F_CREATED_AT="2015-12-16 13:15:44"/>
+
+    <T_WORKSPACE F_ID="3"
+                 F_PROJECT_ID="0"
+                 F_SPACE_KEY="aasdfh"
+                 F_WORKING_STATUS="Deleted"
+                 F_CREATED_AT="2015-12-16 13:15:45"/>
+
+    <T_WORKSPACE F_ID="4"
+                 F_PROJECT_ID="2"
+                 F_SPACE_KEY="docker"
+                 F_WORKING_STATUS="Offline"
+                 F_CREATED_AT="2015-12-16 13:15:41"/>
+
+</dataset>
