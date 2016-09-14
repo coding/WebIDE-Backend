@@ -30,25 +30,23 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * Simple SocketIOAtmosphereHandler that implements the logic to build a
  * SocketIO Chat application.
- *
  */
 @Slf4j
 @AtmosphereHandlerService(
         path = "/*",
-        supportSession=true,
-        broadcasterCache=UUIDBroadcasterCache.class,
+        supportSession = true,
+        broadcasterCache = UUIDBroadcasterCache.class,
         interceptors = SocketIOAtmosphereInterceptor.class)
 public class SocketIOHandler extends SocketIOAtmosphereHandler {
     private final Gson gson = new Gson();
+    private ConcurrentMap<String, TerminalEmulator> connectors = new ConcurrentHashMap<>();
+    private Multimap<String, String> sessions = HashMultimap.create();
 
     public void onConnect(AtmosphereResource r, SocketIOSessionOutbound outbound) throws IOException {
         log.debug("onConnect");
 
         outbound.sendMessage("0{\"sid\":\"" + outbound.getSessionId() + "\",\"upgrades\":[],\"pingInterval\":25000,\"pingTimeout\":60000}");
     }
-
-    private ConcurrentMap<String, TerminalEmulator> connectors = new ConcurrentHashMap<>();
-    private Multimap<String, String> sessions = HashMultimap.create();
 
     public void onMessage(AtmosphereResource r, SocketIOSessionOutbound outbound, String message) {
         if (outbound == null || message == null || message.length() == 0) {
@@ -113,7 +111,14 @@ public class SocketIOHandler extends SocketIOAtmosphereHandler {
         try {
             Map<String, String> envs = Maps.newHashMap(System.getenv());
 
-            String[] command = new String[]{"/bin/bash", "--login"};
+
+            String shell = envs.get("SHELL");
+
+            if (shell == null) {
+                shell = "/bin/bash";
+            }
+
+            String[] command = new String[]{shell, "--login"};
             envs.put("TERM", "xterm");
 
             TerminalEmulator emulator = new TerminalEmulator(arg.getId(),
