@@ -11,8 +11,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import javax.annotation.PostConstruct;
 import java.net.URISyntaxException;
 
-import static net.coding.ide.utils.EnvUtils.setEnv;
-
 /**
  * Created by vangie on 16/1/18.
  */
@@ -28,6 +26,6 @@ public class Application {
 
     @PostConstruct
     public void init() {
-        setEnv("PTY_LIB_FOLDER", ptyLibFolder);
+        System.setProperty("PTY_LIB_FOLDER", ptyLibFolder);
     }
 }
