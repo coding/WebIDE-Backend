@@ -4,12 +4,16 @@
 
 package net.coding.ide;
 
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import javax.annotation.PostConstruct;
+import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 
 /**
  * Created by vangie on 16/1/18.
@@ -20,12 +24,21 @@ public class Application {
     @Value("${PTY_LIB_FOLDER}")
     private String ptyLibFolder;
 
+    @Value("${CODING_IDE_HOME}")
+    private String codingIdeHome;
+
     public static void main(String[] args) throws URISyntaxException {
         SpringApplication.run(Application.class, args);
     }
 
     @PostConstruct
-    public void init() {
+    public void init() throws IOException {
         System.setProperty("PTY_LIB_FOLDER", ptyLibFolder);
+
+        File file = new File(codingIdeHome);
+
+        if (!file.exists()) {
+            Files.createDirectories(file.toPath());
+        }
     }
 }
