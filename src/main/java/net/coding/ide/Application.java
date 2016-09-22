@@ -24,9 +24,6 @@ public class Application {
     @Value("${PTY_LIB_FOLDER}")
     private String ptyLibFolder;
 
-    @Value("${CODING_IDE_HOME}")
-    private String codingIdeHome;
-
     public static void main(String[] args) throws URISyntaxException {
         SpringApplication.run(Application.class, args);
     }
@@ -34,11 +31,5 @@ public class Application {
     @PostConstruct
     public void init() throws IOException {
         System.setProperty("PTY_LIB_FOLDER", ptyLibFolder);
-
-        File file = new File(codingIdeHome);
-
-        if (!file.exists()) {
-            Files.createDirectories(file.toPath());
-        }
     }
 }

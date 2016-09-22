@@ -14,7 +14,11 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
+import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 
 /**
  * Created by vangie on 14/12/4.
@@ -36,6 +40,19 @@ public class JpaConfig {
     @Value("${spring.datasource.driver-class-name}")
     private String driverClassName;
 
+    @Value("${CODING_IDE_HOME}")
+    private String codingIdeHome;
+
+    @PostConstruct
+    public void init() throws IOException {
+
+        File file = new File(codingIdeHome);
+
+        if (!file.exists()) {
+            Files.createDirectories(file.toPath());
+        }
+    }
+
     @Bean
     public DataSource dataSource() {
         DataSourceBuilder dataSourceBuilder = DataSourceBuilder.create();
@@ -44,4 +61,6 @@ public class JpaConfig {
         dataSourceBuilder.type(HikariDataSource.class);
         return dataSourceBuilder.build();
     }
+
+
 }
