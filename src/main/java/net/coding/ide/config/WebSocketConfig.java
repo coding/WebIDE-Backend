@@ -38,6 +38,9 @@ public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
     @Value("#{'${ALLOWED_ORIGINS}'.split(',')}")
     private String[] allowedOrigins;
 
+    @Value("${SPACE_HOME}")
+    private String spaceHome;
+
     @Autowired
     private WebSocketSessionStore webSocketSessionStore;
 
@@ -82,6 +85,7 @@ public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
         bean.addInitParameter("socketio-heartbeat", "15000");
         bean.addInitParameter("socketio-suspendTime", "30000");
         bean.addInitParameter("org.atmosphere.cpr.sessionSupport", "true");
+        bean.addInitParameter("SPACE_HOME", spaceHome);
         bean.setLoadOnStartup(100);
         bean.setAsyncSupported(true);
 

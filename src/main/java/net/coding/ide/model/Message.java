@@ -30,5 +30,7 @@ public class Message {
         private String input;
 
         private String cwd;
+
+        private String spaceKey;
     }
 }
