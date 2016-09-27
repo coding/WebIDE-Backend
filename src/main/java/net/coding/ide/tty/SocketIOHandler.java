@@ -21,11 +21,14 @@ import org.atmosphere.socketio.transport.DisconnectReason;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import static java.lang.String.format;
 
 /**
  * Simple SocketIOAtmosphereHandler that implements the logic to build a
@@ -44,7 +47,6 @@ public class SocketIOHandler extends SocketIOAtmosphereHandler {
 
     public void onConnect(AtmosphereResource r, SocketIOSessionOutbound outbound) throws IOException {
         log.debug("onConnect");
-
         outbound.sendMessage("0{\"sid\":\"" + outbound.getSessionId() + "\",\"upgrades\":[],\"pingInterval\":25000,\"pingTimeout\":60000}");
     }
 
@@ -58,11 +60,18 @@ public class SocketIOHandler extends SocketIOAtmosphereHandler {
 
             String name = msg.getName();
 
+            String spaceHome = r.getAtmosphereConfig().getInitParameter("SPACE_HOME", null);
+
+            if (spaceHome == null) {
+                log.error("SocketIOHandler on message error: SPACE_HOME must be setted in env");
+                return;
+            }
+
             Message.Arg arg = msg.getArgs().get(0);
 
             switch (name) {
                 case "term.open":
-                    itermOpen(outbound, arg);
+                    itermOpen(outbound, spaceHome, arg);
                     break;
                 case "term.input":
                     itermInput(outbound, arg);
@@ -103,11 +112,15 @@ public class SocketIOHandler extends SocketIOAtmosphereHandler {
         }
     }
 
+    private String getWorkdingDir(String spaceHome, String spaceKey) {
+        return format("%s/%s/%s", spaceHome, spaceKey, "/working-dir");
+    }
+
     private String makeConnectorKey(String session, String termId) {
         return session + "-" + termId;
     }
 
-    public void itermOpen(SocketIOSessionOutbound outbound, Message.Arg arg) {
+    public void itermOpen(SocketIOSessionOutbound outbound, String spaceHome, Message.Arg arg) {
         try {
             Map<String, String> envs = Maps.newHashMap(System.getenv());
 
@@ -125,7 +138,7 @@ public class SocketIOHandler extends SocketIOAtmosphereHandler {
                     outbound,
                     command,
                     envs,
-                    null);
+                    getWorkdingDir(spaceHome, arg.getSpaceKey()));
 
             String key = makeConnectorKey(outbound.getSessionId(), arg.getId());
 
