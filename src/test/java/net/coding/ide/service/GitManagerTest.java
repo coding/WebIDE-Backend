@@ -35,6 +35,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -42,6 +43,9 @@ import java.util.concurrent.ExecutionException;
 import static java.util.Arrays.asList;
 import static net.coding.ide.model.DiffEntry.ChangeType.*;
 import static net.coding.ide.model.MergeResponse.Status.CONFLICTING;
+import static net.coding.ide.model.RebaseResponse.RebaseTodoLine.Action.FIXUP;
+import static net.coding.ide.model.RebaseResponse.RebaseTodoLine.Action.REWORD;
+import static net.coding.ide.model.RebaseResponse.RebaseTodoLine.Action.SQUASH;
 import static net.coding.ide.model.RebaseResponse.Status.*;
 import static net.coding.ide.service.GitManagerImpl.*;
 import static net.coding.ide.utils.FilesUtils.createTempDirectoryAndDeleteOnExit;
@@ -783,6 +787,161 @@ public class GitManagerTest extends BaseServiceTest {
     }
 
     @Test
+    public void testRebaseForInteractiveSquash() throws IOException, GitAPIException, GitOperationException {
+        try (Git git = Git.wrap(repository)) {
+
+            this.gitMgr.createBranch(ws, "rebase1");
+            this.gitMgr.createBranch(ws, "rebase2");
+            this.gitMgr.checkout(ws, "rebase1", null);
+
+            writeFileAndCommit(git, "A", "add A", "A");
+
+            this.gitMgr.checkout(ws, "rebase2", null);
+
+            writeFileAndCommit(git, "B", "add B", "B");
+
+            writeFileAndCommit(git, "C", "add C", "C");
+
+            writeFileAndCommit(git, "D", "add D", "D");
+
+            RebaseResponse response = this.gitMgr.rebase(ws, "rebase2", "rebase1", true, false);
+
+            assertEquals(RebaseResponse.Status.INTERACTIVE_PREPARED, response.getStatus());
+
+            // update rebase_todo
+            List<RebaseResponse.RebaseTodoLine> lines = response.getRebaseTodoLines();
+
+            lines.get(1).setAction(SQUASH);
+
+            response = this.gitMgr.updateRebaseTodo(ws, lines);
+
+            assertEquals(false, response.isSuccess());
+
+            assertNotNull(response.getMessage());
+
+            response = this.gitMgr.operateRebase(ws, RebaseOperation.CONTINUE);
+
+            assertEquals("INTERACTIVE_EDIT", response.getStatus().name());
+            assertEquals("# This is a combination of 2 commits.\n" +
+                    "# The first commit's message is:\n" +
+                    "add B\n" +
+                    "# This is the 2nd commit message:\n" +
+                    "add C\n", response.getMessage());
+
+            response = this.gitMgr.operateRebase(ws, RebaseOperation.CONTINUE, "squash B and C");
+
+            assertEquals("OK", response.getStatus().name());
+
+            Iterable<RevCommit> iterable = git.log().call();
+
+            assertGitLogMessageEquals(iterable, "add D", "squash B and C", "add A");
+        }
+    }
+
+    @Test
+    public void testRebaseForInteractiveReword() throws IOException, GitAPIException, GitOperationException {
+        try (Git git = Git.wrap(repository)) {
+
+            this.gitMgr.createBranch(ws, "rebase1");
+            this.gitMgr.createBranch(ws, "rebase2");
+            this.gitMgr.checkout(ws, "rebase1", null);
+
+            writeFileAndCommit(git, "A", "add A", "A");
+
+            this.gitMgr.checkout(ws, "rebase2", null);
+
+            writeFileAndCommit(git, "B", "add B", "B");
+
+            writeFileAndCommit(git, "C", "add C", "C");
+
+            writeFileAndCommit(git, "D", "add D", "D");
+
+            RebaseResponse response = this.gitMgr.rebase(ws, "rebase2", "rebase1", true, false);
+
+            assertEquals(RebaseResponse.Status.INTERACTIVE_PREPARED, response.getStatus());
+
+            // update rebase_todo
+            List<RebaseResponse.RebaseTodoLine> lines = response.getRebaseTodoLines();
+
+            lines.get(1).setAction(REWORD);
+            lines.get(2).setAction(REWORD);
+
+            response = this.gitMgr.updateRebaseTodo(ws, lines);
+
+            assertEquals(RebaseResponse.Status.INTERACTIVE_EDIT, response.getStatus());
+            assertEquals(false, response.isSuccess());
+            assertEquals(false, response.isSuccess());
+            assertEquals("add C", response.getMessage());
+
+            response = this.gitMgr.operateRebase(ws, RebaseOperation.CONTINUE);
+
+            assertEquals(RebaseResponse.Status.INTERACTIVE_EDIT, response.getStatus());
+            assertEquals(false, response.isSuccess());
+            assertEquals("add C", response.getMessage());
+
+            response = this.gitMgr.operateRebase(ws, RebaseOperation.CONTINUE, "reword C");
+
+            assertEquals(RebaseResponse.Status.INTERACTIVE_EDIT, response.getStatus());
+            assertEquals(false, response.isSuccess());
+            assertEquals("add D", response.getMessage());
+
+            response = this.gitMgr.operateRebase(ws, RebaseOperation.CONTINUE, "reword D");
+
+            assertEquals("OK", response.getStatus().name());
+
+            Iterable<RevCommit> iterable = git.log().call();
+
+            assertGitLogMessageEquals(iterable, "reword D", "reword C", "add B", "add A");
+        }
+    }
+
+    @Test
+    public void testRebaseForInteractiveFixup() throws Exception {
+        try (Git git = Git.wrap(repository)) {
+
+            this.gitMgr.createBranch(ws, "rebase1");
+            this.gitMgr.createBranch(ws, "rebase2");
+            this.gitMgr.checkout(ws, "rebase1", null);
+
+            writeFileAndCommit(git, "A", "add A", "A");
+
+            this.gitMgr.checkout(ws, "rebase2", null);
+
+            writeFileAndCommit(git, "B", "add B", "B");
+
+            writeFileAndCommit(git, "C", "add C", "C");
+
+            writeFileAndCommit(git, "D", "add D", "D");
+
+            RebaseResponse response = this.gitMgr.rebase(ws, "rebase2", "rebase1", true, false);
+
+            assertEquals(RebaseResponse.Status.INTERACTIVE_PREPARED, response.getStatus());
+
+            // update rebase_todo
+            List<RebaseResponse.RebaseTodoLine> lines = response.getRebaseTodoLines();
+
+            lines.get(1).setAction(FIXUP);
+
+            response = this.gitMgr.updateRebaseTodo(ws, lines);
+
+            assertEquals(RebaseResponse.Status.OK, response.getStatus());
+            assertEquals(true, response.isSuccess());
+
+            Iterable<RevCommit> iterable = git.log().call();
+
+            assertGitLogMessageEquals(iterable, "add D", "add B");
+        }
+    }
+
+    private static void assertGitLogMessageEquals(Iterable iterable, String ...logs) throws GitAPIException {
+        Iterator<RevCommit> revs = iterable.iterator();
+
+        for (int i=0; i<logs.length; i++) {
+            assertEquals(logs[i], revs.next().getFullMessage());
+        }
+    }
+
+    @Test
     public void testRebaseWithInteractiveEdit() throws Exception {
         try (Git git = Git.wrap(repository)) {
 
@@ -1070,7 +1229,7 @@ public class GitManagerTest extends BaseServiceTest {
     }
 
     private RevCommit writeFileAndCommit(Git git, String fileName, String commitMessage,
-                                         String... lines) throws Exception {
+                                         String... lines) throws IOException, GitAPIException {
         StringBuilder sb = new StringBuilder();
         for (String line : lines) {
             sb.append(line);

@@ -15,9 +15,14 @@ import net.coding.ide.event.WorkspaceDeleteEvent;
 import net.coding.ide.event.WorkspaceOfflineEvent;
 import net.coding.ide.event.WorkspaceStatusEvent;
 import net.coding.ide.git.PrivateKeyCredentialsProvider;
+import net.coding.ide.git.rebase.EditActionHandler;
+import net.coding.ide.git.rebase.RebaseActionHandler;
+import net.coding.ide.git.rebase.RewordActionHandler;
+import net.coding.ide.git.rebase.SquashActionHandler;
 import net.coding.ide.model.*;
 import net.coding.ide.model.ListStashResponse.Stash;
 import net.coding.ide.model.RepositoryState;
+import net.coding.ide.model.exception.GitCommitMessageNeedEditException;
 import net.coding.ide.model.exception.GitInvalidPathException;
 import net.coding.ide.model.exception.GitInvalidRefException;
 import net.coding.ide.model.exception.GitOperationException;
@@ -57,11 +62,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.ApplicationListener;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -70,9 +77,13 @@ import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static net.coding.ide.git.rebase.RebaseActionHandler.DONE;
+import static net.coding.ide.utils.RebaseStateUtils.getRebaseFile;
+import static net.coding.ide.utils.RebaseStateUtils.getRebasePath;
 import static net.coding.ide.utils.RebaseTodoUtils.parseLines;
 import static org.apache.commons.lang.StringUtils.isBlank;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
+import static net.coding.ide.git.rebase.RebaseActionHandler.handler;
 import static org.eclipse.jgit.lib.ConfigConstants.*;
 
 /**
@@ -108,17 +119,7 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
     private static final String GIT_REBASE_TODO = "git-rebase-todo";
 
-    /**
-     * The name of the "rebase-merge" folder for interactive rebases.
-     */
-    private static final String REBASE_MERGE = "rebase-merge"; //$NON-NLS-1$
-
-    /**
-     * The name of the "rebase-apply" folder for non-interactive rebases.
-     */
-    private static final String REBASE_APPLY = "rebase-apply"; //$NON-NLS-1$
-
-    private static final String DONE = "done"; //$NON-NLS-1$
+    private static final int ABBREVIATION_LENGTH = 7;
 
     private ApplicationEventPublisher publisher;
 
@@ -136,6 +137,14 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
     @Value("${EMAIL}")
     private String email;
+
+    private Map<RebaseTodoLine.Action, RebaseActionHandler> actionHandlers = Maps.uniqueIndex(
+            Arrays.asList(
+                    new EditActionHandler(),
+                    new SquashActionHandler(),
+                    new RewordActionHandler()),
+
+            RebaseActionHandler::getAction);
 
     public GitManagerImpl() {
         synchronized (this) {
@@ -617,64 +626,32 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
     /**
      * edit 状态需要 --amend
-     * @param ws
-     * @param operation
-     * @return
      * @throws GitAPIException
      */
     public RebaseResponse operateRebase(Workspace ws, RebaseOperation operation, String message) throws GitAPIException, IOException {
         Repository repository = getRepository(ws.getSpaceKey());
 
         try (Git git = Git.wrap(repository)) {
-            boolean amend = false;
-
             if (operation.equals(RebaseOperation.CONTINUE)) {
                 try {
                     List<RebaseTodoLine> rebaseTodoLines = repository.readRebaseTodo(getRebasePath(repository, DONE), false);
 
-                    if (rebaseTodoLines.size() != 0) {
+                    Status status = git.status().call();
+
+                    if (rebaseTodoLines.size() != 0 && status.getConflicting().size() == 0) {
+
                         // the last rebase_todo_line
                         RebaseTodoLine line = rebaseTodoLines.get(rebaseTodoLines.size() - 1);
 
-                        Status status = git.status().call();
+                        RebaseActionHandler handler = actionHandlers.get(line.getAction());
 
-                        // need amend
-                        if (line.getAction().equals(RebaseTodoLine.Action.EDIT) && status.getConflicting().size() == 0) {
+                        if (handler != null) {
                             if (message != null) {
-                                git.commit()
-                                        .setAll(true)
-                                        .setAmend(true)
-                                        .setNoVerify(true)
-                                        .setMessage(message)
-                                        .call();
-
-                                amend = true;
-                            } else { // tel frontend need message paramter
-                                File messageFile = getRebaseFile(repository, "message");
-
-                                RebaseResponse response = new RebaseResponse(false, RebaseResponse.Status.INTERACTIVE_EDIT);
-
-                                if (messageFile.exists()) {
-                                    response.setMessage(new String(IO.readFully(messageFile)));
-                                }
-
-                                return response;
+                                return handler.process(repository, message);
+                            } else {
+                                return handler.extractMessage(repository);
                             }
-                        } /*else if (line.getAction().equals(RebaseTodoLine.Action.REWORD)) { // todo: reward coundn't be stoped
-                        if (message != null) {
-                            git.rebase().runInteractively(new RebaseCommand.InteractiveHandler() {
-                                @Override
-                                public void prepareSteps(List<RebaseTodoLine> steps) {
-                                    // do nothing
-                                }
-
-                                @Override
-                                public String modifyCommitMessage(String commit) {
-                                    return message;
-                                }
-                            }).setOperation(RebaseCommand.Operation.CONTINUE).call();
                         }
-                    }*/
                     }
                 } catch (FileNotFoundException e) {
                     // nothing_todo if done not exist
@@ -683,15 +660,14 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
             RebaseResult result = git.rebase()
                     .setOperation(RebaseCommand.Operation.valueOf(operation.name()))
+                    .runInteractively(handler)
                     .call();
 
-            // 如果 conflict and edit，amend 后 continue 会返回 NOTHING_TO_COMMIT
-            // so skip this commit
-            if (amend && result.getStatus().equals(RebaseResult.Status.NOTHING_TO_COMMIT)) {
-                result = git.rebase().setOperation(RebaseCommand.Operation.SKIP).call();
-            }
-
             return new RebaseResponse(result);
+        } catch (GitCommitMessageNeedEditException e) {
+            RebaseResponse response = new RebaseResponse(false, RebaseResponse.Status.INTERACTIVE_EDIT);
+            response.setMessage(e.getMessage());
+            return response;
         }
     }
 
@@ -702,30 +678,6 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
         org.eclipse.jgit.lib.RepositoryState state = repository.getRepositoryState();
 
         return RepositoryState.valueOf(state.name());
-    }
-
-    /***
-     * @see RebaseCommand.RebaseState#getDir()
-     */
-    private File getRebaseStateDir(Repository repository) {
-        File file = null;
-
-        File rebaseApply = new File(repository.getDirectory(), REBASE_APPLY);
-        if (rebaseApply.exists()) {
-            file = rebaseApply;
-        } else {
-            file = new File(repository.getDirectory(), REBASE_MERGE);
-        }
-
-        return file;
-    }
-
-    public File getRebaseFile(Repository repository, String name) {
-        return new File(getRebaseStateDir(repository), name);
-    }
-
-    public String getRebasePath(Repository repository, String name) {
-        return (getRebaseStateDir(repository).getName() + "/" + name); //$NON-NLS-1$
     }
 
     private void generate_conflict_files(Workspace ws, ObjectId base, ObjectId local, ObjectId remote, String path) throws IOException {
@@ -963,6 +915,54 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
         }
 
         return commit(ws, files, message);
+    }
+
+    public List<GitLog> log(Workspace ws, String path, Pageable pageable) throws GitAPIException, AccessDeniedException {
+        Repository repository = getRepository(ws.getSpaceKey());
+
+        String relativePath = ws.getRelativePath(path).toString();
+
+        try (Git git = Git.wrap(repository)) {
+            Iterator<RevCommit> revCommits = null;
+
+            if (relativePath.equals(".")) {
+                revCommits = git.log()
+                        .setSkip(pageable.getOffset())
+                        .setMaxCount(pageable.getPageSize())
+                        .call()
+                        .iterator();
+            } else {
+                revCommits = git.log()
+                        .addPath(relativePath.toString())
+                        .setSkip(pageable.getOffset())
+                        .setMaxCount(pageable.getPageSize())
+                        .call()
+                        .iterator();
+            }
+
+            List<GitLog> gitLogs = new ArrayList<>();
+
+            while (revCommits.hasNext()) {
+                RevCommit revCommit = revCommits.next();
+
+                GitLog gitLog = new GitLog();
+
+                gitLog.setName(revCommit.getName());
+                gitLog.setShortName(revCommit.abbreviate(ABBREVIATION_LENGTH).name());
+                gitLog.setCommitTime(revCommit.getCommitTime());
+
+                PersonIdent personIdent = revCommit.getCommitterIdent();
+
+                gitLog.setCommiterIdent(new GitLog.PersonIdent(personIdent.getName(), personIdent.getEmailAddress()));
+
+                gitLog.setFullMessage(revCommit.getFullMessage());
+                gitLog.setShortMessage(revCommit.getShortMessage());
+
+                gitLogs.add(gitLog);
+            }
+
+            return gitLogs;
+        }
     }
 
     @Override
