@@ -18,16 +18,19 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.apache.commons.lang.StringUtils.isBlank;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
+import static org.springframework.http.HttpStatus.NO_CONTENT;
 import static org.springframework.util.StringUtils.commaDelimitedListToStringArray;
 import static org.springframework.web.bind.annotation.RequestMethod.*;
 
@@ -41,7 +44,7 @@ public class GitController {
     @Autowired
     private WorkspaceManager wsMgr;
 
-    @RequestMapping(value = "{spaceKey}", method = GET)
+    @GetMapping("{spaceKey}")
     public CommitStatus status(@PathVariable("spaceKey") Workspace ws) throws GitAPIException {
 
         log.debug("Git status for spaceKey => {}", ws.getSpaceKey());
@@ -49,7 +52,7 @@ public class GitController {
         return gitMgr.getStatus(ws);
     }
 
-    @RequestMapping(value = "{spaceKey}", method = POST)
+    @PostMapping(value = "{spaceKey}/commits", params = "files[]")
     public List<FileInfo> commit(@PathVariable("spaceKey") Workspace ws,
                                  @RequestParam(value = "files[]") String files,
                                  @RequestParam String message) throws Exception {
@@ -68,7 +71,7 @@ public class GitController {
         return fileInfos;
     }
 
-    @RequestMapping(value = "{spaceKey}", method = POST, params = "all")
+    @PostMapping("{spaceKey}/commits")
     public List<FileInfo> commitAll(@PathVariable("spaceKey") Workspace ws,
                                     @RequestParam String message) throws Exception {
 
@@ -84,7 +87,8 @@ public class GitController {
         return fileInfos;
     }
 
-    @RequestMapping(value = "{spaceKey}/diff", method = GET)
+
+    @GetMapping(value = "{spaceKey}/commits", params = {"oldRef", "newRef"})
     public DiffDTO diff(@PathVariable("spaceKey") Workspace ws,
                         @RequestParam String path,
                         @RequestParam String oldRef,
@@ -98,17 +102,16 @@ public class GitController {
         return DiffDTO.of(diff);
     }
 
-    @RequestMapping(value = "{spaceKey}/sync", method = POST)
-    public ResponseEntity sync(@PathVariable("spaceKey") Workspace ws) throws GitAPIException {
+    @ResponseStatus(NO_CONTENT)
+    @PostMapping("{spaceKey}/submodules/sync")
+    public void sync(@PathVariable("spaceKey") Workspace ws) throws GitAPIException {
 
         log.debug("Git sync for spaceKey => {}", ws.getSpaceKey());
 
         gitMgr.sync(ws);
-
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/push", method = GET)
+    @GetMapping("{spaceKey}/push")
     public PushCommits getPushCommits(@PathVariable("spaceKey") Workspace ws) throws IOException, GitAPIException, GitOperationException {
 
         log.debug("Get git push commits for spaceKey => {}", ws.getSpaceKey());
@@ -134,7 +137,7 @@ public class GitController {
      *      ]
      * }
      */
-    @RequestMapping(value = "{spaceKey}/push", method = POST)
+    @PostMapping("{spaceKey}/push")
     public PushResponse push(@PathVariable("spaceKey") Workspace ws,
                              @RequestParam(required = false) String ref) throws GitAPIException, IOException, GitOperationException {
 
@@ -150,7 +153,7 @@ public class GitController {
         return response;
     }
 
-    @RequestMapping(value = "{spaceKey}/push", method = POST, params = "all")
+    @PostMapping(value = "{spaceKey}/push", params = "all")
     public PushResponse pushAll(@PathVariable("spaceKey") Workspace ws) throws GitAPIException, IOException, GitOperationException {
 
         log.debug("Git push all for spaceKey => {}", ws.getSpaceKey());
@@ -158,15 +161,13 @@ public class GitController {
         return gitMgr.pushAll(ws);
     }
 
-    @RequestMapping(value = "{spaceKey}/pull", method = POST)
+    @PostMapping("{spaceKey}/pull")
     public ResponseEntity pull(@PathVariable("spaceKey") Workspace ws) throws GitAPIException, IOException {
 
         log.debug("Git pull for spaceKey => {}", ws.getSpaceKey());
 
-        boolean successful = gitMgr.pull(ws);
-
-        if (successful) {
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        if (gitMgr.pull(ws)) {
+            return new ResponseEntity<>(NO_CONTENT);
         } else {
             return new ResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -178,10 +179,10 @@ public class GitController {
      *      code -> 1, failure, see {@code data.status}
      *      code -> -1, other errors
      */
-    @RequestMapping(value = "{spaceKey}/checkout", method = POST)
+    @PostMapping("{spaceKey}/checkout")
     public CheckoutResponse checkout(@PathVariable("spaceKey") Workspace ws,
-                               @RequestParam String name,
-                               @RequestParam(required = false) String startPoint) throws GitAPIException, IOException, GitOperationException {
+                                     @RequestParam String name,
+                                     @RequestParam(required = false) String startPoint) throws GitAPIException, IOException, GitOperationException {
 
         log.debug("Git checkout for spaceKey => {}, name => {}, startPoint => {}", ws.getSpaceKey(), name, startPoint);
 
@@ -191,7 +192,7 @@ public class GitController {
     /**
      * 显示合并冲突文件
      */
-    @RequestMapping(value = "{spaceKey}/conflicts", method = GET)
+    @GetMapping("{spaceKey}/conflicts")
     public ConflictFile queryConflictFile(@PathVariable("spaceKey") Workspace ws,
                                           @RequestParam String path,
                                           @RequestParam(defaultValue = "false") boolean base64) throws Exception {
@@ -199,16 +200,17 @@ public class GitController {
         return gitMgr.queryConflictFile(ws, path, base64);
     }
 
-    @RequestMapping(value = "{spaceKey}/conflicts", method = DELETE)
+
+    @DeleteMapping("{spaceKey}/conflicts")
     public ResponseEntity deleteConflictFile(@PathVariable("spaceKey") Workspace ws,
                                              @RequestParam String path) throws Exception {
 
         gitMgr.deleteConflictFile(ws, path);
 
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
+        return new ResponseEntity(NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/conflicts", method = POST)
+    @PostMapping("{spaceKey}/conflicts")
     public ResponseEntity resolveConflictFile(@PathVariable("spaceKey") Workspace ws,
                                               @RequestParam String path,
                                               @RequestParam String content,
@@ -216,17 +218,17 @@ public class GitController {
 
         gitMgr.resolveConflictFile(ws, path, content, base64);
 
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
+        return new ResponseEntity(NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/merge", method = POST)
+    @PostMapping("{spaceKey}/merge")
     public MergeResponse merge(@PathVariable("spaceKey") Workspace ws,
-                            @RequestParam String name) throws GitAPIException, IOException {
+                               @RequestParam String name) throws GitAPIException, IOException {
 
         return gitMgr.merge(ws, name);
     }
 
-    @RequestMapping(value = "{spaceKey}/fetch", method = POST)
+    @PostMapping("{spaceKey}/fetch")
     public ResponseEntity fetch(@PathVariable("spaceKey") Workspace ws,
                                 @RequestParam(defaultValue = "true") boolean prune) throws GitAPIException {
 
@@ -234,17 +236,17 @@ public class GitController {
 
         gitMgr.fetch(ws, prune);
 
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
+        return new ResponseEntity(NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/tags", method = GET)
+    @GetMapping("{spaceKey}/tags")
     public List<String> getTags(@PathVariable("spaceKey") Workspace ws) throws GitAPIException {
         List<String> tags = gitMgr.getTags(ws);
 
         return tags;
     }
 
-    @RequestMapping(value = "{spaceKey}/branch", method = GET)
+    @GetMapping("{spaceKey}/branch")
     public BranchDTO getBranch(@PathVariable("spaceKey") Workspace ws) throws IOException {
 
         log.debug("Git get branch for spaceKey => {}", ws.getSpaceKey());
@@ -252,7 +254,7 @@ public class GitController {
         return BranchDTO.of(gitMgr.getBranch(ws));
     }
 
-    @RequestMapping(value = "{spaceKey}/branches", method = GET)
+    @GetMapping("{spaceKey}/branches")
     public Branches getBranches(@PathVariable("spaceKey") Workspace ws) throws GitAPIException, IOException {
 
         log.debug("Git get branches for spaceKey => {}", ws.getSpaceKey());
@@ -260,7 +262,7 @@ public class GitController {
         return gitMgr.getBranches(ws);
     }
 
-    @RequestMapping(value = "{spaceKey}/branches", method = POST)
+    @PostMapping("{spaceKey}/branches")
     public Branches createBranch(@PathVariable("spaceKey") Workspace ws,
                                  @RequestParam String branchName) throws GitAPIException, IOException, GitOperationException {
 
@@ -273,10 +275,10 @@ public class GitController {
         return gitMgr.getBranches(ws);
     }
 
-    @RequestMapping(value = "{spaceKey}/branches/{branchName}", method = DELETE)
-    public Branches deleteBranch(@PathVariable("spaceKey") Workspace ws,
-                                 @PathVariable String branchName) throws GitAPIException, IOException, GitOperationException {
 
+    @DeleteMapping(value = "{spaceKey}/branches")
+    public Branches deleteBranch(@PathVariable("spaceKey") Workspace ws,
+                                 @RequestParam String branchName) throws GitAPIException, IOException, GitOperationException {
         log.debug("Git delete branch for spaceKey => {}, branchName => {}", ws.getSpaceKey(), branchName);
 
         if (!gitMgr.hasBranch(ws, branchName)) {
@@ -288,7 +290,7 @@ public class GitController {
         return gitMgr.getBranches(ws);
     }
 
-    @RequestMapping(value = "{spaceKey}/stash", method = POST)
+    @PostMapping("{spaceKey}/stash")
     public ResponseEntity createStash(@PathVariable("spaceKey") Workspace ws,
                                       @RequestParam String message) throws GitAPIException, GitOperationException {
         log.debug("Git delete branch for spaceKey => {}, includeUntracked => {}, message => {}",
@@ -296,10 +298,10 @@ public class GitController {
 
         gitMgr.createStash(ws, message);
 
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
+        return new ResponseEntity(NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/read", method = GET)
+    @GetMapping("{spaceKey}/read")
     public FileDTO read(@PathVariable("spaceKey") Workspace ws,
                         @RequestParam String ref,
                         @RequestParam String path,
@@ -309,7 +311,15 @@ public class GitController {
         return FileDTO.of(path, content, base64);
     }
 
-    @RequestMapping(value = "{spaceKey}/diff", method = GET, params = "ref")
+    @RequestMapping(value = "{spaceKey}/logs", method = GET)
+    public List<GitLog> log(@PathVariable("spaceKey") Workspace ws,
+                            @RequestParam String path,
+                            Pageable pageable) throws GitAPIException, AccessDeniedException {
+
+        return gitMgr.log(ws, path, pageable);
+    }
+
+    @GetMapping(value = "{spaceKey}/commits", params = "ref")
     public List<DiffEntry> getDiffEntryForCommit(@PathVariable("spaceKey") Workspace ws,
                                                  @RequestParam String ref) throws IOException, GitAPIException {
 
@@ -318,18 +328,18 @@ public class GitController {
 
     @RequestMapping(value = "{spaceKey}/stash/apply", method = POST)
     public ResponseEntity applyStash(@PathVariable("spaceKey") Workspace ws,
-                                        @RequestParam String stashRef,
-                                        @RequestParam(defaultValue = "false") Boolean pop,
-                                        @RequestParam(defaultValue = "false") Boolean applyIndex) throws GitAPIException {
+                                     @RequestParam String stashRef,
+                                     @RequestParam(defaultValue = "false") Boolean pop,
+                                     @RequestParam(defaultValue = "false") Boolean applyIndex) throws GitAPIException {
         log.debug("Git delete branch for spaceKey => {}, stashRef => {}, pop => {}, applyIndex => {}",
                 ws.getSpaceKey(), stashRef, pop, applyIndex);
 
         gitMgr.applyStash(ws, stashRef, applyIndex, pop);
 
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return new ResponseEntity<>(NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/stash/checkout", method = POST)
+    @PostMapping("{spaceKey}/stash/checkout")
     public CheckoutResponse checkoutStash(@PathVariable("spaceKey") Workspace ws,
                                           @RequestParam String stashRef,
                                           @RequestParam String branch) throws GitAPIException, IOException, GitOperationException {
@@ -337,7 +347,7 @@ public class GitController {
         return gitMgr.checkoutStash(ws, stashRef, branch);
     }
 
-    @RequestMapping(value = "{spaceKey}/stash", method = DELETE)
+    @DeleteMapping("{spaceKey}/stash")
     public ResponseEntity dropStash(@PathVariable("spaceKey") Workspace ws,
                                     @RequestParam(required = false) String stashRef,
                                     @RequestParam(defaultValue = "false") Boolean all) throws GitAPIException {
@@ -350,17 +360,17 @@ public class GitController {
             gitMgr.dropAllStash(ws);
         }
 
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
+        return new ResponseEntity(NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/stash", method = GET)
+    @GetMapping("{spaceKey}/stash")
     public ListStashResponse listStash(@PathVariable("spaceKey") Workspace ws) throws GitAPIException {
         log.debug("Git list stash for spaceKey => {}", ws.getSpaceKey());
 
         return gitMgr.listStash(ws);
     }
 
-    @RequestMapping(value = "{spaceKey}/rebase", method = POST)
+    @PostMapping("{spaceKey}/rebase")
     public RebaseResponse rebase(@PathVariable("spaceKey") Workspace ws,
                                  @RequestParam(required = false) String branch,
                                  @RequestParam String upstream,
@@ -378,17 +388,17 @@ public class GitController {
         return response;
     }
 
-    @RequestMapping(value = "{spaceKey}/rebase/update", method = POST)
+    @PostMapping("{spaceKey}/rebase/update")
     public RebaseResponse updateRebaseTodo(@PathVariable("spaceKey") Workspace ws,
                                            @RequestBody List<RebaseResponse.RebaseTodoLine> lines) throws IOException, GitAPIException, GitOperationException {
 
         return gitMgr.updateRebaseTodo(ws, lines);
     }
 
-    @RequestMapping(value = "{spaceKey}/rebase/operate", method = POST)
+    @PostMapping("{spaceKey}/rebase/operate")
     public RebaseResponse operateRebase(@PathVariable("spaceKey") Workspace ws,
-                                    @RequestParam RebaseOperation operation,
-                                    @RequestParam(required = false) String message) throws GitAPIException, IOException {
+                                        @RequestParam RebaseOperation operation,
+                                        @RequestParam(required = false) String message) throws GitAPIException, IOException {
         if (isNotBlank(message)) {
             return gitMgr.operateRebase(ws, operation, message);
         } else {
@@ -396,21 +406,21 @@ public class GitController {
         }
     }
 
-    @RequestMapping(value = "{spaceKey}", method = GET, params = "state")
+    @GetMapping(value = "{spaceKey}", params = "state")
     public RepositoryState state(@PathVariable("spaceKey") Workspace ws) {
         return gitMgr.state(ws);
     }
 
-    @RequestMapping(value = "{spaceKey}/reset", method = POST)
+    @PostMapping("{spaceKey}/reset")
     public ResponseEntity reset(@PathVariable("spaceKey") Workspace ws,
                                 @RequestParam String ref,
                                 @RequestParam ResetType resetType) throws GitAPIException {
         gitMgr.reset(ws, ref, resetType);
 
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return new ResponseEntity<>(NO_CONTENT);
     }
 
-    @RequestMapping(value = "{spaceKey}/tags", method = POST)
+    @PostMapping("{spaceKey}/tags")
     public ResponseEntity tag(@PathVariable("spaceKey") Workspace ws,
                               @RequestParam String tagName,
                               @RequestParam(required = false) String ref,
@@ -419,7 +429,6 @@ public class GitController {
 
         gitMgr.createTag(ws, tagName, ref, message, force);
 
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
+        return new ResponseEntity(NO_CONTENT);
     }
 }
-
