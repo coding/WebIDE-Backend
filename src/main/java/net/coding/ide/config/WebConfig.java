@@ -62,6 +62,12 @@ public class WebConfig extends WebMvcConfigurerAdapter {
     }
 
     @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        super.addViewControllers(registry);
+        registry.addViewController("/ws/**").setViewName("forward:/workspace.html");
+    }
+
+    @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOrigins(allowedOrigins)
