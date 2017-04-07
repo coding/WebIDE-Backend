@@ -344,12 +344,6 @@
             <systemPath>${basedir}/lib/purejavacomm-0.0.17.jar</systemPath>
         </dependency>
 
-        <dependency>
-            <groupId>net.coding.ide</groupId>
-            <artifactId>frontend</artifactId>
-            <scope>runtime</scope>
-            <version>1.0.0</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -374,15 +368,30 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- https://blog.jdriven.com/2014/09/package-only-dependencies-maven/ -->
             <plugin>
-              <groupId>org.apache.maven.plugins</groupId>
-              <artifactId>maven-surefire-plugin</artifactId>
-              <version>2.19.1</version>
-              <configuration>
-                <classpathDependencyExcludes>
-                  <classpathDependencyExcludes>net.coding.ide:frontend</classpathDependencyExcludes>
-                </classpathDependencyExcludes>
-              </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>package-only-deps</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>net.coding.ide</groupId>
+                                    <artifactId>frontend</artifactId>
+                                    <version>1.0.0</version>
+                                </artifactItem>
+                            </artifactItems>
+                            <!-- http://docs.spring.io/spring-boot/docs/current/reference/html/executable-jar.html -->
+                            <outputDirectory>${project.build.directory}/classes/BOOT-INF/lib</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

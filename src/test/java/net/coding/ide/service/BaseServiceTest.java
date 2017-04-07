@@ -19,6 +19,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 @ContextConfiguration(classes = {
         TestPropConfig.class
 })
-public class BaseServiceTest {
+public abstract class BaseServiceTest {
 
 }
