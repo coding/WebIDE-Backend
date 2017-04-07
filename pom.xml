@@ -347,6 +347,7 @@
         <dependency>
             <groupId>net.coding.ide</groupId>
             <artifactId>frontend</artifactId>
+            <scope>runtime</scope>
             <version>1.0.0</version>
         </dependency>
     </dependencies>
