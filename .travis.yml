@@ -27,7 +27,7 @@ script:
 - set -e
 - mvn -Dskip-webjars=true package
 - docker build -f Dockerfile -t $REPO:$COMMIT .
-- - if [ "$TRAVIS_BRANCH" == "master" ]; then docker tag $REPO:$COMMIT $REPO:latest; fi
+- if [ "$TRAVIS_BRANCH" == "master" ]; then docker tag $REPO:$COMMIT $REPO:latest; fi
 - docker login -u $DOCKER_USER -p $DOCKER_PASS
 - docker push $REPO
 
