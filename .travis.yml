@@ -21,6 +21,8 @@ before_install:
 - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load;
   fi
 
+install: true
+
 script:
 - set -e
 - mvn --Dskip-webjars=true package
