@@ -1,4 +1,5 @@
 # Coding WebIDE Backend
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/Coding/WebIDE/blob/master/LICENSE) [![Build Status](https://travis-ci.org/Coding/WebIDE-Backend.svg?branch=master)](https://travis-ci.org/Coding/WebIDE-Backend) [![Docker Stars](https://img.shields.io/docker/stars/webide/backend.svg)](https://hub.docker.com/r/webide/backend 'DockerHub') [![Docker Pulls](https://img.shields.io/docker/pulls/webide/backend.svg)](https://hub.docker.com/r/webide/backend 'DockerHub')
 
 This repo is the backend of **Coding [WebIDE](https://ide.coding.net) Community Edition**
 
@@ -33,4 +34,3 @@ Please refer to the script in `WebIDE-Workspace` repo, which provides a command 
 If you want to pack the frontend manually, please refer to `WebIDE-Frontend-Webjars` repo.
 
 Once done packing, start the poject with `mvn spring-boot:run`.
-

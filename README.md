@@ -1,4 +1,5 @@
 # Coding WebIDE Backend
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/Coding/WebIDE/blob/master/LICENSE) [![Build Status](https://travis-ci.org/Coding/WebIDE-Backend.svg?branch=master)](https://travis-ci.org/Coding/WebIDE-Backend) [![Docker Stars](https://img.shields.io/docker/stars/webide/backend.svg)](https://hub.docker.com/r/webide/backend 'DockerHub') [![Docker Pulls](https://img.shields.io/docker/pulls/webide/backend.svg)](https://hub.docker.com/r/webide/backend 'DockerHub')
 
 本项目是开源版 [WebIDE](https://ide.coding.net) 的后端程序。
 

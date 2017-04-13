@@ -1,15 +1,38 @@
+dist: trusty
 language: java
 jdk:
-  - oraclejdk8
+- oraclejdk8
 
 cache:
   directories:
   - "$HOME/.m2"
 
-install: true
+env:
+  global:
+  - COMMIT=${TRAVIS_COMMIT::8}
+  - DOCKER_CACHE_FILE=${HOME}/docker/cache.tar.gz
+  - REPO=webide/backend
+  - secure: qL8NHgOsEC6KgNUVWjeNqj1YBYUnKsZ+j14098jConbNqVeXOOvjeihjP85mCULo/ory0RjuvSMbDpqUpkgfNRE+NgrAcnlPY36Y08FXWn0BDZphHQhRTu8Jbp/AIYWS0mhI0ZEPmAEyIJsZu3nggEL2XtthK2aCQGJjVMcBJBxo2xZfhN+hrFj0u8kJUpIQNxTbS5+rCQYjAekch5EkjDzUQEoSPerQ9Vb4DcJ5S/YSA/Z3FfFhEwUuh7cgqZOko9GEJOEbIHTXG2ZqyghlTzW26bJPbQsitgAZWTMmn70IBFXQakamhC/6uFxJZOK0EO1Lh33MDqKN6qGhJVLWMYJ9M7RD3cQzj9dpElwsLRgcj1shTGmrh1DzTIc2rNNT5EV5Kfw6KwPhk4CbDj4CP0fZRBPuvaNg/KcR2DS130unxi+PBqasslfqrE7Pvahayjz9OCxa/tMblX+SR5m4CnY4P4IzOyTxLOjN68S5D2oCTmV9W/iOoXF1kUm7pe6fFKWTWH/cI2H3dh6DFtQBR39y2zRfTryuGLGmhbNz0fN1323r80scYEplZQ5tsdkvLxIBXkn2+Cvgmek5nl10xkUD1/DU52hhI9cFC9K8Cj74KTJ4Us38157OR6zCC8Es44zpBpDzyodYJ6/zkBLMIr+MWN4FzJcY2EteKEGliYo=
+  - secure: V4CHmKz/DbPeUkXI7zng/vwpMP/EnDV/s60fHd+g7/G15WADX/OaZj+PE6lQEaGzvKwdmjjisnFHPrpOpegJA80AGjhj2f/x+WcpcCw4k0ct7tFHrXylgzols4n04jlMBcvyxgKrk0pbyKP/zAUe5UF3YZ8cjjNjOlDZDbvpaNphHmcQn3NkrW3z4CcwemJqG2l4+di3enXb2/VETn/WRJTvk1epXpZ2jCk3+2xQG7LkxgAvZTm2vK8YxQ7rXFqzoas2nYT3YFSBktU+B6rU2gtiH0R0FaLhuNKEukJo4EgdPUNXZebDzKbKmzgSBFw5O3sR6eoMdQhMVrO4dZuwGcUAdSd8VLFBG6I+7ulRiafik2RcFhnft2Vy+x5pdroToGyt9Dc8Q4bpMgGAAn4q7orm0Om4r3UgKCwktboMYbFLrlMTflp7tRCHXYunoh7YQEpNZYGT8typ0wRu/D4MHIf7m0wcT8jceYMo43GVqN/yVPycIHwgslR/SyPJdBrChk4scunXKOOmxo8tn9KnYnuA4JHiZC3J3mQ/Rjnp6Glw37IX2M7TKcwk47ve24FU84pgoXKE/4gnsmNEPborEMPw4arN8MlO/3wDoIFv7iBClx64hqZ/GPPGqx2cXzMqGJMxl90/XJRnbzVm01HjmobRJ71YAqnJDTBEkY/wUqU=
+
+before_install:
+- sudo apt-get update
+- sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-engine
+- if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load;
+  fi
 
 script:
-  mvn test
+- set -e
+- mvn --Dskip-webjars=true package
+- docker build -f Dockerfile -t $REPO:$COMMIT .
+- docker tag $REPO:$COMMIT $REPO:latest
+- docker login -u $DOCKER_USER -p $DOCKER_PASS
+- docker push $REPO
+
+before_cache:
+- set -e
+- mkdir -p $(dirname ${DOCKER_CACHE_FILE})
+- docker save $(docker history -q $REPO:$COMMIT | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}
 
 notifications:
   slack:
