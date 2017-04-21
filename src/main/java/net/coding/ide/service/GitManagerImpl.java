@@ -62,6 +62,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.*;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -91,7 +95,7 @@ import static org.eclipse.jgit.lib.ConfigConstants.*;
  */
 @Slf4j
 @Service
-public class GitManagerImpl implements GitManager, ApplicationEventPublisherAware, ApplicationListener<WorkspaceStatusEvent> {
+public class GitManagerImpl implements GitManager, ApplicationEventPublisherAware {
     /**
      * Prefix for branch refs
      */
@@ -1635,12 +1639,13 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
         return ignoreNode.isIgnored(path, isDir) == IgnoreNode.MatchResult.IGNORED;
     }
 
-    @Override
-    public void onApplicationEvent(WorkspaceStatusEvent event) {
+
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    @EventListener
+    public void handleWorkspaceStatusEvent(WorkspaceStatusEvent event) {
         String spaceKey = event.getSpaceKey();
-        if (event instanceof WorkspaceOfflineEvent) {
-            invalidateRepository(spaceKey);
-        } else if (event instanceof WorkspaceDeleteEvent) {
+        if (event instanceof WorkspaceOfflineEvent
+                || event instanceof WorkspaceDeleteEvent) {
             invalidateRepository(spaceKey);
         }
     }
