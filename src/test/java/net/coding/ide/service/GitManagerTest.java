@@ -349,6 +349,30 @@ public class GitManagerTest extends BaseServiceTest {
     }
 
     @Test
+    public void testStashWithUntractked() throws IOException, GitAPIException, GitOperationException {
+        try (Git git = Git.wrap(repository)) {
+            writeTrashFile("test", "This is readme");
+            writeTrashFile("notTractedFile", "this file is untracked");
+
+            git.add().addFilepattern("test").call();
+
+            gitMgr.createStash(ws, false, null);
+
+            Status status = git.status().call();
+
+            assertEquals(0, status.getAdded().size());
+            assertEquals(1, status.getUntracked().size());
+
+            gitMgr.applyStash(ws, null, false, false);
+
+            status = git.status().call();
+
+            assertEquals(1, status.getAdded().size());
+            assertEquals(1, status.getUntracked().size());
+        }
+    }
+
+    @Test
     public void testDropAllStash() throws GitAPIException, IOException, GitOperationException, InterruptedException {
         testStashCreate();
 

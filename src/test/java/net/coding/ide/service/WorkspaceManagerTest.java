@@ -73,6 +73,9 @@ public class WorkspaceManagerTest extends BaseServiceTest {
     private File testSpaceHome;
 
     @Mock
+    private WatchedPathStore watchedPathStore;
+
+    @Mock
     private Cache wsCache;
 
     @Mock
