@@ -80,6 +80,9 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
     private RandomGenerator randomGene;
 
     @Autowired
+    private WatchedPathStore watchedPathStore;
+
+    @Autowired
     private KeyManager keyMgr;
 
     @Autowired
@@ -387,7 +390,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
     private WorkspaceWatcher createNewWatcher(String spaceKey) {
         Workspace ws = getWorkspace(spaceKey);
-        return new WorkspaceWatcher(this, ws, publisher);
+        return new WorkspaceWatcher(this, ws, watchedPathStore, publisher);
     }
 
     /**
@@ -531,6 +534,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         // filter out the temporary files
         result = TemporaryFileFilter.filter(result);
 
+        watchedPathStore.add(ws.getSpaceKey(), path.endsWith("/") ? path : path + "/");
         return result;
     }
 
