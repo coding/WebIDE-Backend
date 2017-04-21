@@ -398,13 +398,14 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
     }
 
     @Override
-    public void createStash(Workspace ws, String message) throws GitAPIException, GitOperationException {
+    public void createStash(Workspace ws, boolean includeUntracked, String message) throws GitAPIException, GitOperationException {
         Repository repository = getRepository(ws.getSpaceKey());
+
 
         try (Git git = Git.wrap(repository)) {
             StashCreateCommand createCommand = git.stashCreate();
 
-            createCommand.setIncludeUntracked(false);
+            createCommand.setIncludeUntracked(includeUntracked);
 
             if (!isBlank(message)) {
                 createCommand.setWorkingDirectoryMessage(message);

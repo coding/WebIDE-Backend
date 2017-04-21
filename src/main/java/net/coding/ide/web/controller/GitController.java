@@ -292,13 +292,14 @@ public class GitController {
 
     @PostMapping("{spaceKey}/stash")
     public ResponseEntity createStash(@PathVariable("spaceKey") Workspace ws,
-                                      @RequestParam String message) throws GitAPIException, GitOperationException {
+                                      @RequestParam String message,
+                                      @RequestParam(defaultValue = "false") boolean includeUntracked) throws GitAPIException, GitOperationException {
         log.debug("Git delete branch for spaceKey => {}, includeUntracked => {}, message => {}",
                 ws.getSpaceKey(), message);
 
-        gitMgr.createStash(ws, message);
+        gitMgr.createStash(ws, includeUntracked, message);
 
-        return new ResponseEntity(NO_CONTENT);
+        return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
 
     @GetMapping("{spaceKey}/read")

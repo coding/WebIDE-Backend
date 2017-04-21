@@ -31,7 +31,7 @@ public interface GitManager {
 
     MergeResponse merge(Workspace ws, String branch) throws GitAPIException, IOException;
 
-    void createStash(Workspace ws, String message) throws GitAPIException, GitOperationException;
+    void createStash(Workspace ws, boolean includeUntracked, String message) throws GitAPIException, GitOperationException;
 
     void applyStash(Workspace ws, String stashRef, boolean applyIndex, boolean pop) throws GitAPIException;
 
