@@ -728,6 +728,8 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
         ObjectId objectId = repository.resolve(ref);
 
+        String relativePath = ws.getRelativePath(path).toString();
+
         if (objectId == null) {
             throw new GitInvalidRefException(format("ref %s is not exist", ref));
         }
@@ -741,7 +743,7 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
             try (TreeWalk treeWalk = new TreeWalk(repository)) {
                 treeWalk.addTree(tree);
                 treeWalk.setRecursive(true);
-                treeWalk.setFilter(PathFilter.create(path));
+                treeWalk.setFilter(PathFilter.create(relativePath));
 
                 if (!treeWalk.next()) {
                     throw new GitInvalidPathException(format("Did not find expected file '%s'", path));
@@ -770,6 +772,8 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
     public ConflictFile queryConflictFile(Workspace ws, String path, boolean base64) throws Exception {
         GitStatus status = status(ws, ws.getRelativePath(path));
 
+        String relativePath = ws.getRelativePath(path).toString();
+
         if (!status.equals(GitStatus.CONFLICTION)) {
             throw new GitOperationException(format("status of %s is not confliction", path));
         }
@@ -783,7 +787,7 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
                 || !ws.exists(remotePath)) {
             Repository repository = getRepository(ws.getSpaceKey());
 
-            DirCacheEntry[] entries = findEntrys(repository, ws.getRelativePath(path).toString());
+            DirCacheEntry[] entries = findEntrys(repository, relativePath);
 
             ObjectId local = null, remote = null, base = null;
 
