@@ -6,7 +6,6 @@ package net.coding.ide.event;
 
 import lombok.Getter;
 import net.coding.ide.model.Workspace;
-import org.springframework.context.ApplicationEvent;
 
 public class GitCheckoutEvent {
 

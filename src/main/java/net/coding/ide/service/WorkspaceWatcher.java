@@ -12,13 +12,8 @@ import net.coding.ide.event.FileDeleteEvent;
 import net.coding.ide.event.FileModifyEvent;
 import net.coding.ide.model.FileInfo;
 import net.coding.ide.model.Workspace;
-import net.coding.ide.utils.Callback;
 import net.coding.ide.utils.Debouncer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -26,8 +21,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static java.nio.file.Files.isDirectory;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -37,7 +30,6 @@ import static java.nio.file.StandardWatchEventKinds.*;
  * Created by phy on 2015/1/30.
  */
 @Slf4j
-@Component
 public class WorkspaceWatcher extends Thread {
     private volatile boolean stopWatching = false;
     private Workspace ws;
@@ -47,21 +39,11 @@ public class WorkspaceWatcher extends Thread {
 
     private Debouncer<FileChangeEvent> debouncer;
 
-    private static String[] ignoreDirs = new String[]{".git"};
+    private static String[] ignoreDirs = new String[]{"/.git/objects/"};
 
-    private static String[] ignoreFiles = new String[]{"^\\..+\\.sw(?:px?|o|x)$"};
+    private WatchedPathStore watchedPathStore;
 
-    private static Pattern[] patterns = new Pattern[ignoreFiles.length];
-
-    @Autowired
     private WorkspaceManager wsMgr;
-
-
-    static {
-        for (int i = 0; i < ignoreFiles.length; i++) {
-            patterns[i] = Pattern.compile(ignoreFiles[i]);
-        }
-    }
 
     private List<Path> ignorePaths = Lists.newArrayList();
 
@@ -73,14 +55,12 @@ public class WorkspaceWatcher extends Thread {
         }
     }
 
-    public WorkspaceWatcher() {
-
-    }
-
-    public WorkspaceWatcher(WorkspaceManager wsMgr, Workspace ws, final ApplicationEventPublisher publisher) {
+    public WorkspaceWatcher(WorkspaceManager wsMgr, Workspace ws, WatchedPathStore watchedPathStore, final ApplicationEventPublisher publisher) {
         this.ws = ws;
         this.wsMgr = wsMgr;
         this.workingDir = ws.getWorkingDir().toPath();
+        this.watchedPathStore = watchedPathStore;
+
         this.debouncer = new Debouncer<>(event -> {
             log.info("publish file change event: {}", event);
             publisher.publishEvent(event);
@@ -89,11 +69,14 @@ public class WorkspaceWatcher extends Thread {
         for (String dir : ignoreDirs) {
             try {
                 ignorePaths.add(ws.getPath(dir));
+                watchedPathStore.add(ws.getSpaceKey(), ws.getPath(dir).toString());
             } catch (AccessDeniedException e) {
                 e.printStackTrace();
             }
         }
 
+        watchedPathStore.add(ws.getSpaceKey(), "/");
+        watchedPathStore.add(ws.getSpaceKey(), "/.git/"); // for .git/HEAD
     }
 
     public void stopWatching() {
@@ -131,22 +114,11 @@ public class WorkspaceWatcher extends Thread {
         }
     }
 
-    private boolean isIgnoreFile(String fileName) {
-        for (Pattern pattern : patterns) {
-            Matcher matcher = pattern.matcher(fileName);
-            if (matcher.matches()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-
     public void run() {
 
         registerAll(workingDir);
 
-        while (!stopWatching) {
+        while ( ! stopWatching && ! isInterrupted() ) {
 
             try {
                 WatchKey watchKey = watcher.take();
@@ -159,18 +131,18 @@ public class WorkspaceWatcher extends Thread {
 
                 for (WatchEvent<?> event : watchKey.pollEvents()) {
 
-
                     WatchEvent<Path> ev = (WatchEvent<Path>) event;
                     Path fileName = ev.context();
                     Path filePath = dir.resolve(fileName);
 
-                    if ((ignorePaths.contains(filePath)) ||
-                            ((isIgnoreFile(fileName.toString())) && (event.kind() != ENTRY_DELETE))) {
+                    Path relativePath = workingDir.relativize(filePath);
+                    String path = ws.getNormalizePath(relativePath.toString()).toString();
+
+                    if ( ! path.startsWith("/.git/refs/heads/")
+                            && ! watchedPathStore.hasWatched(ws.getSpaceKey(), path) ) {
+                        log.debug("not watched {} on workspace {}", path, ws.getSpaceKey());
                         continue;
                     }
-
-                    Path relativePath = workingDir.relativize(filePath);
-
 
                     FileChangeEvent fileChangeEvent = null;
 
@@ -204,8 +176,10 @@ public class WorkspaceWatcher extends Thread {
 
                         FileInfo fileInfo = new FileInfo();
                         fileInfo.setName(fileName.toString());
-                        fileInfo.setPath(ws.getNormalizePath(relativePath.toString()).toString());
+                        fileInfo.setPath(path);
                         fileChangeEvent = new FileDeleteEvent(ws, fileInfo);
+
+                        watchedPathStore.remove(ws.getSpaceKey(), path);
 
                     }
 

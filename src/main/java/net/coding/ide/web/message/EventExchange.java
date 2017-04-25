@@ -29,8 +29,8 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
  */
 @Slf4j
 @Component
-public class EventExchange implements ApplicationEventPublisherAware,
-        ApplicationListener<ApplicationEvent> {
+public class EventExchange {
+
     @Autowired
     private WebSocketSessionStore webSocketSessionStore;
 
@@ -40,28 +40,13 @@ public class EventExchange implements ApplicationEventPublisherAware,
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
 
+    @Autowired
     private ApplicationEventPublisher eventPublisher;
 
     private Gson gson = Converters.registerDateTime(new GsonBuilder()).create();
 
-    @Override
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.eventPublisher = applicationEventPublisher;
-    }
-
-    @Override
-    public void onApplicationEvent(ApplicationEvent event) {
-
-        if (event instanceof AbstractSubProtocolEvent) {
-            if (event instanceof SessionConnectEvent) {
-                onSessionConnected((SessionConnectEvent) event);
-            } else if (event instanceof SessionDisconnectEvent) {
-                onSessionDisConnected((SessionDisconnectEvent) event);
-            }
-        }
-    }
-
-    private void onSessionConnected(SessionConnectEvent event) {
+    @EventListener
+    public void onSessionConnected(SessionConnectEvent event) {
         Message msg = event.getMessage();
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(msg);
         String sessionId = accessor.getSessionId();
@@ -82,7 +67,8 @@ public class EventExchange implements ApplicationEventPublisherAware,
         }
     }
 
-    private void onSessionDisConnected(SessionDisconnectEvent event) {
+    @EventListener
+    public void onSessionDisConnected(SessionDisconnectEvent event) {
         Message msg = event.getMessage();
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(msg);
         String sessionId = accessor.getSessionId();

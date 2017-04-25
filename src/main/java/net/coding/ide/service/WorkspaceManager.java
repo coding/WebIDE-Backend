@@ -8,6 +8,7 @@ import net.coding.ide.entity.WorkspaceEntity;
 import net.coding.ide.model.FileInfo;
 import net.coding.ide.model.FileSearchResultEntry;
 import net.coding.ide.model.Workspace;
+import net.coding.ide.model.exception.GitCloneAuthFailException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -21,7 +22,7 @@ public interface WorkspaceManager {
 
     Workspace setup(String spaceKey);
 
-    Workspace createFromUrl(String gitUrl);
+    Workspace createFromUrl(String gitUrl) throws GitCloneAuthFailException;
 
     void delete(String spaceKey);
 

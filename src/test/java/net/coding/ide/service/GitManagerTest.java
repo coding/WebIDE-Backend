@@ -250,18 +250,16 @@ public class GitManagerTest extends BaseServiceTest {
     @Test
     @Ignore
     public void testStashCreate() throws IOException, GitAPIException, GitOperationException {
-        ws.write("test", "This is readme", false, true, false);
+        writeTrashFile("test", "This is readme");
 
         Git.wrap(repository).add().addFilepattern("test").call();
 
-        gitMgr.createStash(ws, null);
-
-
+        gitMgr.createStash(ws, false, null);
     }
 
     @Test(expected = GitOperationException.class)
     public void testStashCreateWithException() throws GitAPIException, GitOperationException {
-        gitMgr.createStash(ws, null);
+        gitMgr.createStash(ws, false, null);
     }
 
     @Test
@@ -281,7 +279,7 @@ public class GitManagerTest extends BaseServiceTest {
 
         git.add().addFilepattern("test").call();
 
-        gitMgr.createStash(ws, null);
+        gitMgr.createStash(ws, false, null);
 
         ws.write("test", "This is readme conflict", false, true, false);
 
@@ -351,6 +349,30 @@ public class GitManagerTest extends BaseServiceTest {
     }
 
     @Test
+    public void testStashWithUntractked() throws IOException, GitAPIException, GitOperationException {
+        try (Git git = Git.wrap(repository)) {
+            writeTrashFile("test", "This is readme");
+            writeTrashFile("notTractedFile", "this file is untracked");
+
+            git.add().addFilepattern("test").call();
+
+            gitMgr.createStash(ws, false, null);
+
+            Status status = git.status().call();
+
+            assertEquals(0, status.getAdded().size());
+            assertEquals(1, status.getUntracked().size());
+
+            gitMgr.applyStash(ws, null, false, false);
+
+            status = git.status().call();
+
+            assertEquals(1, status.getAdded().size());
+            assertEquals(1, status.getUntracked().size());
+        }
+    }
+
+    @Test
     public void testDropAllStash() throws GitAPIException, IOException, GitOperationException, InterruptedException {
         testStashCreate();
 
@@ -377,7 +399,7 @@ public class GitManagerTest extends BaseServiceTest {
 
         ws.remove("README2.md", false);
 
-        gitMgr.createStash(ws, null);
+        gitMgr.createStash(ws, false, null);
 
         // will not contain untracked files diff
         List<DiffEntry> entries = gitMgr.getDiffEntryForCommit(ws, "stash@{0}");

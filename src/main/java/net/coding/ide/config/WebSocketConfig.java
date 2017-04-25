@@ -47,8 +47,7 @@ public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/sockjs")
-                .addInterceptors(new SpaceKeyHandshakeInterceptor(),
-                        new HttpSessionHandshakeInterceptor())
+                .addInterceptors(new SpaceKeyHandshakeInterceptor())
                 .setAllowedOrigins(allowedOrigins)
                 .withSockJS();
     }

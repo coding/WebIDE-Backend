@@ -36,6 +36,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,7 +66,8 @@ import static net.coding.ide.entity.WorkspaceEntity.WsWorkingStatus.*;
  */
 @Slf4j
 @Service
-public class WorkspaceManagerImpl extends BaseService implements WorkspaceManager, ApplicationEventPublisherAware, ApplicationListener<WorkspaceStatusEvent> {
+@Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
+public class WorkspaceManagerImpl extends BaseService implements WorkspaceManager, ApplicationEventPublisherAware {
     private ApplicationEventPublisher publisher;
 
     @Value("${SPACE_HOME}")
@@ -72,6 +78,9 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
     @Autowired
     private RandomGenerator randomGene;
+
+    @Autowired
+    private WatchedPathStore watchedPathStore;
 
     @Autowired
     private KeyManager keyMgr;
@@ -328,25 +337,32 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         return new File(spaceHome, spaceKey);
     }
 
-    @Override
-    public void onApplicationEvent(WorkspaceStatusEvent event) {
+    @Order(Ordered.HIGHEST_PRECEDENCE + 3)
+    @EventListener
+    public void handleWorkspaceStatusEvent(WorkspaceStatusEvent event) {
         String spaceKey = event.getSpaceKey();
 
         if (event instanceof WorkspaceOnlineEvent) {
+            updateWorkingStatus(spaceKey, Online);
             watch(spaceKey);
-
-            wsRepo.updateWorkingStatus(spaceKey, Online);
         } else if (event instanceof WorkspaceOfflineEvent) {
-            unwatch(spaceKey);
-
             if (!wsRepo.isDeleted(spaceKey)) {
-                wsRepo.updateWorkingStatus(spaceKey, Offline);
+                updateWorkingStatus(spaceKey, Offline);
             }
-        } else if (event instanceof WorkspaceDeleteEvent) {
             unwatch(spaceKey);
-            wsRepo.updateWorkingStatus(spaceKey, Deleted);
+        } else if (event instanceof WorkspaceDeleteEvent) {
+            updateWorkingStatus(spaceKey, Deleted);
+            unwatch(spaceKey);
         }
     }
+
+    private void updateWorkingStatus(String spaceKey, WorkspaceEntity.WsWorkingStatus status) {
+        WorkspaceEntity entity = wsRepo.findBySpaceKey(spaceKey);
+        entity.setWorkingStatus(status);
+        wsRepo.save(entity);
+    }
+
+
 
     private void watch(String spaceKey) {
         synchronized (watcherMap) {
@@ -374,7 +390,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
     private WorkspaceWatcher createNewWatcher(String spaceKey) {
         Workspace ws = getWorkspace(spaceKey);
-        return new WorkspaceWatcher(this, ws, publisher);
+        return new WorkspaceWatcher(this, ws, watchedPathStore, publisher);
     }
 
     /**
@@ -518,6 +534,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         // filter out the temporary files
         result = TemporaryFileFilter.filter(result);
 
+        watchedPathStore.add(ws.getSpaceKey(), path.endsWith("/") ? path : path + "/");
         return result;
     }
 
