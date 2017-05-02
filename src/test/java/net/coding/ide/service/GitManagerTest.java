@@ -1185,6 +1185,18 @@ public class GitManagerTest extends BaseServiceTest {
         assertEquals(content, "branch1");
     }
 
+    @Test
+    public void testForReadFileFromRevWithAbsolutePath() throws IOException {
+
+        String content = this.gitMgr.readFileFromRef(ws, "master", "/README.md", false);
+
+        assertEquals(content, "This is readme");
+
+        content = this.gitMgr.readFileFromRef(ws, "branch1", "/README.md", false);
+
+        assertEquals(content, "branch1");
+    }
+
     @Test(expected = GitInvalidPathException.class)
     public void testForReadFileFromRevWithNotExitFile() throws IOException, GitOperationException {
         this.gitMgr.readFileFromRef(ws, "master", "not_exist", false);
