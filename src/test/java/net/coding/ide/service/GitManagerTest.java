@@ -222,6 +222,72 @@ public class GitManagerTest extends BaseServiceTest {
     }
 
     @Test
+    public void testBlame() throws GitAPIException, IOException {
+        try (Git git = Git.wrap(repository)) {
+
+            writeFileAndCommit(git, "testBlame", "first commit", "first line");
+            writeFileAndCommit(git, "testBlame", "second commit", "first line", "second line");
+            writeTrashFile("testBlame", "first line\nmodified line\nsecond line\n");
+
+            List<GitBlame> gitBlames = gitMgr.blame(ws, "testBlame");
+
+            assertEquals(3, gitBlames.size());
+            assertNotNull(gitBlames.get(0).getShortName());
+            assertNull(gitBlames.get(1).getShortName());
+            assertNotNull(gitBlames.get(2).getShortName());
+        }
+    }
+
+    @Test
+    public void testBlameWithRename() throws GitAPIException, IOException {
+        try (Git git = Git.wrap(repository)) {
+
+            writeFileAndCommit(git, "testBlame", "first commit", "first line");
+            writeFileAndCommit(git, "testBlame", "second commit", "first line", "second line");
+            writeTrashFile("testBlame", "first line\nmodified line\nsecond line\n");
+            ws.move("testBlame", "renameTestBlame", false);
+
+            git.add().addFilepattern("renameTestBlame").call();
+            git.commit().setMessage("rename file").call();
+
+            writeTrashFile("renameTestBlame", "first line\nsecond modified line after rename\nmodified line\nsecond line\n");
+
+            List<GitBlame> gitBlames = gitMgr.blame(ws, "renameTestBlame");
+
+            assertEquals(4, gitBlames.size());
+
+            assertNotNull(gitBlames.get(0).getShortName());
+            assertNull(gitBlames.get(1).getShortName());
+            assertNotNull(gitBlames.get(2).getShortName());
+            assertNotNull(gitBlames.get(3).getShortName());
+        }
+    }
+
+    @Test
+    public void testBlameNotTracked() throws IOException, GitAPIException {
+        try (Git git = Git.wrap(repository)) {
+
+            writeTrashFile("testBlame", "first line\n1");
+
+            List<GitBlame> gitBlames = gitMgr.blame(ws, "testBlame");
+
+            assertEquals(2, gitBlames.size());
+            assertNull(gitBlames.get(0).getShortName());
+            assertNull(gitBlames.get(1).getShortName());
+        }
+    }
+
+    @Test
+    public void testBlameNotExist() throws IOException, GitAPIException {
+        try (Git git = Git.wrap(repository)) {
+
+            List<GitBlame> gitBlames = gitMgr.blame(ws, "notExist");
+
+            assertEquals(0, gitBlames.size());
+        }
+    }
+
+    @Test
     public void testResolveConflictFile() throws Exception {
         testQueryConflictFile();
 
