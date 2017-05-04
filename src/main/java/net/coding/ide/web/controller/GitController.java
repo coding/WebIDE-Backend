@@ -320,6 +320,12 @@ public class GitController {
         return gitMgr.log(ws, path, pageable);
     }
 
+    @RequestMapping(value = "{spaceKey}/blame", method = GET)
+    public List<GitBlame> blame(@PathVariable("spaceKey") Workspace ws,
+                                @RequestParam String path) throws AccessDeniedException, GitAPIException {
+        return gitMgr.blame(ws, path);
+    }
+
     @GetMapping(value = "{spaceKey}/commits", params = "ref")
     public List<DiffEntry> getDiffEntryForCommit(@PathVariable("spaceKey") Workspace ws,
                                                  @RequestParam String ref) throws IOException, GitAPIException {

@@ -33,6 +33,7 @@ import org.eclipse.jgit.api.*;
 import org.eclipse.jgit.api.errors.CheckoutConflictException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.JGitInternalException;
+import org.eclipse.jgit.blame.BlameResult;
 import org.eclipse.jgit.diff.DiffConfig;
 import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.dircache.DirCacheEntry;
@@ -123,7 +124,7 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
     private static final String GIT_REBASE_TODO = "git-rebase-todo";
 
-    private static final int ABBREVIATION_LENGTH = 7;
+    public static final int ABBREVIATION_LENGTH = 7;
 
     private ApplicationEventPublisher publisher;
 
@@ -898,9 +899,9 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
                     GitStatus gitStatus = f.getStatus();
 
                     if (gitStatus == GitStatus.REMOVED) {
-                        new Git(repository).rm().addFilepattern(file).call();
+                        git.rm().addFilepattern(file).call();
                     } else if (gitStatus != GitStatus.MISSING){
-                        new Git(repository).add().addFilepattern(file).call();
+                        git.add().addFilepattern(file).call();
                         result.add(file);
                     }
 
@@ -971,6 +972,45 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
             }
 
             return gitLogs;
+        }
+    }
+
+    public List<GitBlame> blame(Workspace ws, String path) throws AccessDeniedException, GitAPIException {
+        Repository repository = getRepository(ws.getSpaceKey());
+
+        String relativePath = ws.getRelativePath(path).toString();
+
+        try (Git git = Git.wrap(repository)) {
+            BlameResult blameResult = git.blame()
+                    .setFilePath(relativePath)
+                    .setFollowFileRenames(true)
+                    .call();
+
+            if (blameResult == null) { // file not exist
+                return Lists.newArrayList();
+            }
+
+            int lineCnt = blameResult.getResultContents().size();
+
+            List<GitBlame> gitBlames = new ArrayList<>();
+
+            for (int i=0; i<lineCnt; i++) {
+                PersonIdent author = blameResult.getSourceAuthor(i);
+                RevCommit commit = blameResult.getSourceCommit(i);
+
+                GitBlame blame = new GitBlame();
+
+
+                blame.setAuthor(new GitBlame.PersonIdent(author.getName(), author.getEmailAddress(), author.getWhen().getTime()));
+
+                if (commit != null) {
+                    blame.setShortName(commit.abbreviate(ABBREVIATION_LENGTH).name());
+                }
+
+                gitBlames.add(blame);
+            }
+
+            return gitBlames;
         }
     }
 

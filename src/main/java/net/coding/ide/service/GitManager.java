@@ -55,6 +55,8 @@ public interface GitManager {
 
     List<GitLog> log(Workspace ws, String path, Pageable pageable) throws GitAPIException, AccessDeniedException;
 
+    List<GitBlame> blame(Workspace ws, String path) throws AccessDeniedException, GitAPIException;
+
     String diff(Workspace ws, String path, String oldRef, String newRef) throws IOException, GitAPIException;
 
     void sync(Workspace ws) throws GitAPIException;
