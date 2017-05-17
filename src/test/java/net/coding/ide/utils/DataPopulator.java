@@ -66,7 +66,6 @@ public class DataPopulator {
         gitLog.setShortName("xxx");
         gitLog.setName("xxxxxx");
         gitLog.setShortName("short message");
-        gitLog.setFullMessage("full message");
         gitLog.setCommitTime((int)new Date().getTime() / 1000);
         gitLog.setAuthorIdent(populatePersonIdent());
         gitLog.setCommiterIdent(populatePersonIdent());
@@ -77,7 +76,6 @@ public class DataPopulator {
         PersonIdent personIdent = new PersonIdent();
         personIdent.setName("user");
         personIdent.setEmailAddress("user@coding.net");
-        personIdent.setWhen(new Date().getTime());
         return personIdent;
     }
 }

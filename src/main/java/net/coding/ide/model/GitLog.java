@@ -14,8 +14,6 @@ public class GitLog {
 
     private String shortMessage;
 
-    private String fullMessage;
-
     private int commitTime;
 
     private PersonIdent commiterIdent;

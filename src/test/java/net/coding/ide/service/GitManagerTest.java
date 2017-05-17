@@ -284,8 +284,6 @@ public class GitManagerTest extends BaseServiceTest {
             assertEquals(2, gitLogs.size());
             assertEquals(7, gitLogs.get(0).getShortName().length());
             assertEquals(7, gitLogs.get(1).getShortName().length());
-            assertEquals("modified readme 6 times", gitLogs.get(0).getFullMessage());
-            assertEquals("modified readme 5 times", gitLogs.get(1).getFullMessage());
 
             // test for page too large
             request = new PageRequest(20, 2);

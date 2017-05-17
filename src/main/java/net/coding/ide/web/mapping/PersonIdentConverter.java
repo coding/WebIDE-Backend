@@ -16,7 +16,6 @@ public class PersonIdentConverter extends AbstractConverter<org.eclipse.jgit.lib
         return PersonIdent.builder()
                 .name(source.getName())
                 .emailAddress(source.getEmailAddress())
-                .when(source.getWhen().getTime())
                 .build();
     }
 }

@@ -16,6 +16,4 @@ public class PersonIdent {
     private String name;
 
     private String emailAddress;
-
-    private Long when;
 }
