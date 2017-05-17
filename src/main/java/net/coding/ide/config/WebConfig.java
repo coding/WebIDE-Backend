@@ -8,6 +8,7 @@ import com.fatboyindustrial.gsonjodatime.Converters;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.coding.ide.web.message.SpringfoxJsonToGsonAdapter;
+import org.modelmapper.Converter;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -49,8 +50,12 @@ public class WebConfig extends WebMvcConfigurerAdapter {
     }
 
     @Bean
-    public ModelMapper modelMapper() {
-        return new ModelMapper();
+    public ModelMapper modelMapper(List<Converter> converters) {
+        ModelMapper mapper = new ModelMapper();
+
+        converters.stream().forEach(mapper::addConverter);
+
+        return mapper;
     }
 
     private Gson gson() {

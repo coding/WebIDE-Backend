@@ -7,6 +7,7 @@ package net.coding.ide.service;
 import net.coding.ide.model.*;
 import net.coding.ide.model.exception.GitOperationException;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.revwalk.filter.RevFilter;
 import org.springframework.data.domain.Pageable;
 
 import java.io.IOException;
@@ -53,7 +54,7 @@ public interface GitManager {
 
     List<String> commitAll(Workspace ws, String message) throws GitAPIException, IOException;
 
-    List<GitLog> log(Workspace ws, String path, Pageable pageable) throws GitAPIException, AccessDeniedException;
+    List<GitLog> log(Workspace ws, String[] ref, String[] path, String[] authors, Long since, Long until, Pageable pageable) throws GitAPIException, IOException;
 
     List<GitBlame> blame(Workspace ws, String path) throws AccessDeniedException, GitAPIException;
 
