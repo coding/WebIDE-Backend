@@ -42,6 +42,7 @@ import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.dircache.DirCacheIterator;
 import org.eclipse.jgit.errors.CorruptObjectException;
+import org.eclipse.jgit.errors.IncorrectObjectTypeException;
 import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.ignore.IgnoreNode;
 import org.eclipse.jgit.lib.*;
@@ -94,6 +95,7 @@ import static org.apache.commons.lang.StringUtils.isBlank;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static net.coding.ide.git.rebase.RebaseActionHandler.handler;
 import static org.eclipse.jgit.lib.ConfigConstants.*;
+import static org.eclipse.jgit.lib.RefDatabase.ALL;
 
 /**
  * Created by vangie on 14/12/29.
@@ -987,7 +989,7 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
     }
 
     // if all is false and ref is null, it will use HEAD as default
-    private List<GitLog> log(Workspace ws, String[] ref, String[] path, RevFilter revFilter, Pageable pageable) throws GitAPIException, IOException {
+    private List<GitLog> log(Workspace ws, String[] refs, String[] path, RevFilter revFilter, Pageable pageable) throws GitAPIException, IOException {
         Repository repository = getRepository(ws.getSpaceKey());
 
         try (Git git = Git.wrap(repository)) {
@@ -999,8 +1001,8 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
             boolean all = true;
 
-            if (ref != null && ref.length != 0) {
-                Arrays.stream(ref)
+            if (refs != null && refs.length != 0) { // if refs avaliable
+                Arrays.stream(refs)
                         .filter(r -> r != null)
                         .map(r -> resolveAndAssertNotNull(repository, r))
                         .forEach(objectId -> addStartRefForLog(logCommand, objectId));
@@ -1008,7 +1010,32 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
                 all = false;
             }
 
-            if (all) logCommand.all(); // for all refs
+            if (all) {
+                Map<String, Ref> allRefs = repository.getRefDatabase().getRefs(ALL);
+
+                allRefs.values().stream()  // all but not stash refs
+                        .filter(r -> ! r.getName().equals(Constants.R_STASH))
+                        .map(r -> {
+                            if( ! r.isPeeled() )
+                                r = repository.peel(r);
+
+                            ObjectId objectId = r.getPeeledObjectId();
+                            if (objectId == null)
+                                objectId = r.getObjectId();
+                            return objectId;
+                        }).forEach(objectId -> {
+                            try {
+                                logCommand.add(objectId);
+                            } catch (MissingObjectException e) {
+                                // ignore: the ref points to an object that does not exist;
+                                // it should be ignored as traversal starting point.
+                            } catch (IncorrectObjectTypeException e) {
+                                // ignore: the ref points to an object that is not a commit
+                                // (e.g. a tree or a blob);
+                                // it should be ignored as traversal starting point.
+                            }
+                        });
+            }
 
             if (path != null && path.length != 0) { // add path filters
                 Arrays.stream(path)
@@ -1018,6 +1045,8 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
                         .filter(r -> ! r.equals("."))
                         .forEach(logCommand::addPath);
             }
+
+            // remove stash refs
 
             try (RevWalk revCommits = (RevWalk) logCommand.call()) {
                 revCommits.sort(RevSort.TOPO, true);

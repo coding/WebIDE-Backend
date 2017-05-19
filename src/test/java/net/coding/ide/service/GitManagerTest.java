@@ -6,6 +6,7 @@ package net.coding.ide.service;
 
 import com.google.common.cache.LoadingCache;
 import com.google.common.io.Files;
+import lombok.SneakyThrows;
 import net.coding.ide.model.*;
 import net.coding.ide.model.exception.GitInvalidPathException;
 import net.coding.ide.model.exception.GitInvalidRefException;
@@ -17,10 +18,13 @@ import net.coding.ide.web.mapping.PersonIdentConverter;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.LogCommand;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.*;
 import org.eclipse.jgit.junit.JGitTestUtil;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.lib.RefDatabase;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTag;
@@ -45,8 +49,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
 import static net.coding.ide.model.DiffEntry.ChangeType.*;
@@ -249,6 +255,16 @@ public class GitManagerTest extends BaseServiceTest {
 
             assertEquals(1, gitLogs.size());
         }
+    }
+
+    @Test
+    public void testLogWithoutStash() throws IOException, GitAPIException, GitOperationException {
+        testStashCreate();
+
+        PageRequest request = new PageRequest(0, 10);
+        List<GitLog> logs = gitMgr.log(ws, null, null, null, null, null, request);
+
+        assertEquals(3, logs.size());
     }
 
     @Test
