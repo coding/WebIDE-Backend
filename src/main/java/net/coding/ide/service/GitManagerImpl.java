@@ -973,6 +973,40 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
         }
     }
 
+    /**
+     * list all refs except stash for graph log
+     */
+    public List<GitRef> refs(Workspace ws) throws IOException, GitAPIException {
+
+        Repository repository = getRepository(ws.getSpaceKey());
+
+        try (Git git = Git.wrap(repository)) {
+
+            Map<String, Ref> refs = repository.getRefDatabase().getRefs(RefDatabase.ALL);
+
+            refs.remove(Constants.R_STASH);
+
+            return refs.values()
+                    .stream()
+                    .map(ref -> {
+                        if (! ref.isPeeled() )
+                            ref = repository.peel(ref);
+                        return ref;
+                    })
+                    .map(ref -> {
+                        ObjectId objectId = ref.getPeeledObjectId();
+                        if (objectId == null) {
+                            objectId = ref.getObjectId();
+                        }
+
+                        return GitRef.builder()
+                                .name(ref.getName())
+                                .id(objectId.getName())
+                                .build();
+                    }).collect(Collectors.toList());
+        }
+    }
+
     // if all is false and ref is null, it will use HEAD as default
     public List<GitLog> log(Workspace ws,
                             String[] ref,
@@ -1013,6 +1047,7 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
             if (all) {
                 Map<String, Ref> allRefs = repository.getRefDatabase().getRefs(ALL);
 
+                // @see LogCommand##all()
                 allRefs.values().stream()  // all but not stash refs
                         .filter(r -> ! r.getName().equals(Constants.R_STASH))
                         .map(r -> {

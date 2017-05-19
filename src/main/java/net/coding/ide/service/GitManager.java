@@ -54,6 +54,8 @@ public interface GitManager {
 
     List<String> commitAll(Workspace ws, String message) throws GitAPIException, IOException;
 
+    List<GitRef> refs(Workspace ws) throws IOException, GitAPIException;
+
     List<GitLog> log(Workspace ws, String[] ref, String[] path, String[] authors, Long since, Long until, Pageable pageable) throws GitAPIException, IOException;
 
     List<GitBlame> blame(Workspace ws, String path) throws AccessDeniedException, GitAPIException;

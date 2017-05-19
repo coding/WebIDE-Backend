@@ -334,6 +334,11 @@ public class GitController {
                 pageable);
     }
 
+    @RequestMapping(value = "{spaceKey}/refs", method = GET)
+    public List<GitRef> refs(@PathVariable("spaceKey") Workspace ws) throws GitAPIException, IOException {
+        return gitMgr.refs(ws);
+    }
+
     @RequestMapping(value = "{spaceKey}/blame", method = GET)
     public List<GitBlame> blame(@PathVariable("spaceKey") Workspace ws,
                                 @RequestParam String path) throws AccessDeniedException, GitAPIException {

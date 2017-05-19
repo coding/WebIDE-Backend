@@ -8,6 +8,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.io.Files;
 import lombok.SneakyThrows;
 import net.coding.ide.model.*;
+import net.coding.ide.model.RepositoryState;
 import net.coding.ide.model.exception.GitInvalidPathException;
 import net.coding.ide.model.exception.GitInvalidRefException;
 import net.coding.ide.model.exception.GitOperationException;
@@ -22,10 +23,7 @@ import org.eclipse.jgit.api.LogCommand;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.*;
 import org.eclipse.jgit.junit.JGitTestUtil;
-import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.lib.Ref;
-import org.eclipse.jgit.lib.RefDatabase;
-import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTag;
 import org.eclipse.jgit.revwalk.RevWalk;
@@ -691,6 +689,25 @@ public class GitManagerTest extends BaseServiceTest {
         gitMgr.dropAllStash(ws);
 
         assertStashListSize(0);
+    }
+
+    @Test
+    public void testRefs() throws IOException, GitAPIException, GitOperationException {
+        testStashCreate();
+
+        gitMgr.createBranch(ws, "remoteBranch");
+
+        ws.mkdir(".git/refs/remotes");
+        ws.move(".git/refs/heads/remoteBranch", ".git/refs/remotes/remoteBranch", true);
+
+        List<GitRef> gitRefs = gitMgr.refs(ws);
+
+        assertEquals(5, gitRefs.size());
+        assertEquals("HEAD", gitRefs.get(0).getName());
+        assertEquals("refs/heads/branch1", gitRefs.get(1).getName());
+        assertEquals("refs/heads/branch2", gitRefs.get(2).getName());
+        assertEquals("refs/heads/master", gitRefs.get(3).getName());
+        assertEquals("refs/remotes/remoteBranch", gitRefs.get(4).getName());
     }
 
     @Test
