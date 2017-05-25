@@ -4,11 +4,13 @@
 
 package net.coding.ide.service;
 
+import com.google.common.base.Strings;
 import com.google.common.cache.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.Files;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import net.coding.ide.event.GitCheckoutEvent;
 import net.coding.ide.event.WorkspaceDeleteEvent;
@@ -21,6 +23,7 @@ import net.coding.ide.git.rebase.RewordActionHandler;
 import net.coding.ide.git.rebase.SquashActionHandler;
 import net.coding.ide.model.*;
 import net.coding.ide.model.ListStashResponse.Stash;
+import net.coding.ide.model.PersonIdent;
 import net.coding.ide.model.RepositoryState;
 import net.coding.ide.model.exception.GitCommitMessageNeedEditException;
 import net.coding.ide.model.exception.GitInvalidPathException;
@@ -39,14 +42,12 @@ import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.dircache.DirCacheIterator;
 import org.eclipse.jgit.errors.CorruptObjectException;
+import org.eclipse.jgit.errors.IncorrectObjectTypeException;
 import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.ignore.IgnoreNode;
 import org.eclipse.jgit.lib.*;
-import org.eclipse.jgit.revwalk.FollowFilter;
-import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevTree;
-import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.revwalk.filter.RevFilter;
+import org.eclipse.jgit.revwalk.*;
+import org.eclipse.jgit.revwalk.filter.*;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.storage.file.WindowCacheConfig;
 import org.eclipse.jgit.transport.*;
@@ -56,6 +57,7 @@ import org.eclipse.jgit.treewalk.FileTreeIterator;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.treewalk.filter.PathFilter;
 import org.eclipse.jgit.util.IO;
+import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +82,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static java.lang.String.format;
 import static net.coding.ide.git.rebase.RebaseActionHandler.DONE;
@@ -90,6 +95,7 @@ import static org.apache.commons.lang.StringUtils.isBlank;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static net.coding.ide.git.rebase.RebaseActionHandler.handler;
 import static org.eclipse.jgit.lib.ConfigConstants.*;
+import static org.eclipse.jgit.lib.RefDatabase.ALL;
 
 /**
  * Created by vangie on 14/12/29.
@@ -142,6 +148,9 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
     @Value("${EMAIL}")
     private String email;
+
+    @Autowired
+    private ModelMapper mapper;
 
     private Map<RebaseTodoLine.Action, RebaseActionHandler> actionHandlers = Maps.uniqueIndex(
             Arrays.asList(
@@ -927,52 +936,197 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
         return commit(ws, files, message);
     }
 
-    public List<GitLog> log(Workspace ws, String path, Pageable pageable) throws GitAPIException, AccessDeniedException {
+    private RevFilter processRevFilter(String[] authors, Long since, Long until) {
+        RevFilter dateRevFilter = null;
+        if (since != null && until != null) {
+            dateRevFilter = CommitTimeRevFilter.between(since, until);
+        } else if (until != null){
+            dateRevFilter = CommitTimeRevFilter.before(until);
+        } else if (since != null) {
+            dateRevFilter = CommitTimeRevFilter.after(since);
+        }
+
+        RevFilter authorRevFilter = null;
+
+        if (authors != null && authors.length != 0) {
+            RevFilter[] authFilters = Arrays.stream(authors)
+                    .map(author -> AuthorRevFilter.create(author))
+                    .toArray(RevFilter[]::new);
+
+            if (authFilters.length == 1) {
+                authorRevFilter = authFilters[0];
+            } else if (authFilters.length >= 2) {
+                authorRevFilter = OrRevFilter.create(authFilters); // 同一类的 filter 使用 or，不同类型的则使用 and
+            }
+        }
+
+        RevFilter[] revFilters = Stream.of(dateRevFilter, authorRevFilter) // may contains null
+                .filter(f -> f != null)
+                .toArray(RevFilter[]::new);
+
+        if (revFilters.length >= 2) {
+            return AndRevFilter.create(revFilters); // 同一类的 filter 使用 or，不同类型的则使用 and
+        } else if (revFilters.length == 1){
+            return revFilters[0];
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * list all refs except stash for graph log
+     */
+    public List<GitRef> refs(Workspace ws) throws IOException, GitAPIException {
+
         Repository repository = getRepository(ws.getSpaceKey());
 
-        String relativePath = ws.getRelativePath(path).toString();
+        try (Git git = Git.wrap(repository)) {
+
+            Map<String, Ref> refs = repository.getRefDatabase().getRefs(RefDatabase.ALL);
+
+            refs.remove(Constants.R_STASH);
+
+            return refs.values()
+                    .stream()
+                    .map(ref -> {
+                        if (! ref.isPeeled() )
+                            ref = repository.peel(ref);
+                        return ref;
+                    })
+                    .map(ref -> {
+                        ObjectId objectId = ref.getPeeledObjectId();
+                        if (objectId == null) {
+                            objectId = ref.getObjectId();
+                        }
+
+                        return GitRef.builder()
+                                .name(ref.getName())
+                                .id(objectId.getName())
+                                .build();
+                    }).collect(Collectors.toList());
+        }
+    }
+
+    // if all is false and ref is null, it will use HEAD as default
+    public List<GitLog> log(Workspace ws,
+                            String[] ref,
+                            String[] path,
+                            String[] authors,
+                            Long since,
+                            Long until,
+                            Pageable pageable) throws GitAPIException, IOException {
+
+
+        return log(ws, ref, path,
+                processRevFilter(authors, since, until),
+                pageable);
+    }
+
+    // if all is false and ref is null, it will use HEAD as default
+    private List<GitLog> log(Workspace ws, String[] refs, String[] path, RevFilter revFilter, Pageable pageable) throws GitAPIException, IOException {
+        Repository repository = getRepository(ws.getSpaceKey());
 
         try (Git git = Git.wrap(repository)) {
-            Iterator<RevCommit> revCommits = null;
 
-            if (relativePath.equals(".")) {
-                revCommits = git.log()
-                        .setSkip(pageable.getOffset())
-                        .setMaxCount(pageable.getPageSize())
-                        .call()
-                        .iterator();
-            } else {
-                revCommits = git.log()
-                        .addPath(relativePath.toString())
-                        .setSkip(pageable.getOffset())
-                        .setMaxCount(pageable.getPageSize())
-                        .call()
-                        .iterator();
+            LogCommand logCommand = git.log()
+                    .setSkip(pageable.getOffset())
+                    .setMaxCount(pageable.getPageSize());
+
+
+            boolean all = true;
+
+            if (refs != null && refs.length != 0) { // if refs avaliable
+                Arrays.stream(refs)
+                        .filter(r -> r != null)
+                        .map(r -> resolveAndAssertNotNull(repository, r))
+                        .forEach(objectId -> addStartRefForLog(logCommand, objectId));
+
+                all = false;
             }
 
-            List<GitLog> gitLogs = new ArrayList<>();
+            if (all) {
+                Map<String, Ref> allRefs = repository.getRefDatabase().getRefs(ALL);
 
-            while (revCommits.hasNext()) {
-                RevCommit revCommit = revCommits.next();
+                // @see LogCommand##all()
+                allRefs.values().stream()  // all but not stash refs
+                        .filter(r -> ! r.getName().equals(Constants.R_STASH))
+                        .map(r -> {
+                            if( ! r.isPeeled() )
+                                r = repository.peel(r);
 
-                GitLog gitLog = new GitLog();
-
-                gitLog.setName(revCommit.getName());
-                gitLog.setShortName(revCommit.abbreviate(ABBREVIATION_LENGTH).name());
-                gitLog.setCommitTime(revCommit.getCommitTime());
-
-                PersonIdent personIdent = revCommit.getCommitterIdent();
-
-                gitLog.setCommiterIdent(new GitLog.PersonIdent(personIdent.getName(), personIdent.getEmailAddress()));
-
-                gitLog.setFullMessage(revCommit.getFullMessage());
-                gitLog.setShortMessage(revCommit.getShortMessage());
-
-                gitLogs.add(gitLog);
+                            ObjectId objectId = r.getPeeledObjectId();
+                            if (objectId == null)
+                                objectId = r.getObjectId();
+                            return objectId;
+                        }).forEach(objectId -> {
+                            try {
+                                logCommand.add(objectId);
+                            } catch (MissingObjectException e) {
+                                // ignore: the ref points to an object that does not exist;
+                                // it should be ignored as traversal starting point.
+                            } catch (IncorrectObjectTypeException e) {
+                                // ignore: the ref points to an object that is not a commit
+                                // (e.g. a tree or a blob);
+                                // it should be ignored as traversal starting point.
+                            }
+                        });
             }
 
-            return gitLogs;
+            if (path != null && path.length != 0) { // add path filters
+                Arrays.stream(path)
+                        .filter(p -> p != null)
+                        .map(p -> getRelativePath(ws, p))
+                        .filter(Strings::isNullOrEmpty)
+                        .filter(r -> ! r.equals("."))
+                        .forEach(logCommand::addPath);
+            }
+
+            // remove stash refs
+
+            try (RevWalk revCommits = (RevWalk) logCommand.call()) {
+                revCommits.sort(RevSort.TOPO, true);
+
+                if (revFilter != null) { // add rev filters, including date, user, message
+                    revCommits.setRevFilter(revFilter);
+                }
+
+                return StreamSupport.stream(revCommits.spliterator(), false)
+                        .map(revCommit -> {
+                            GitLog log = mapper.map(revCommit, GitLog.class);
+
+                            String[] parents = Arrays.stream(revCommit.getParents())
+                                    .map(RevCommit::name)
+                                    .toArray(String[]::new);
+
+                            log.setParents(parents);
+                            log.setCommiterIdent(mapper.map(revCommit.getCommitterIdent(), PersonIdent.class));
+                            log.setAuthorIdent(mapper.map(revCommit.getAuthorIdent(), PersonIdent.class));
+                            log.setShortName(revCommit.abbreviate(ABBREVIATION_LENGTH).name());
+
+                            return log;
+                        }).collect(Collectors.toList());
+            }
         }
+    }
+
+    @SneakyThrows(IOException.class)
+    private ObjectId resolveAndAssertNotNull(Repository repository, String ref) {
+        ObjectId objectId = repository.resolve(ref);
+
+        if (objectId == null) // if specify a ref, all could not be used
+            throw new GitInvalidRefException(format("ref %s is not exist", ref));
+
+        return objectId;
+    }
+
+    @SneakyThrows(AccessDeniedException.class)
+    private String getRelativePath(Workspace ws, String path) {
+        return ws.getRelativePath(path).toString();
+    }
+
+    @SneakyThrows(IOException.class)
+    private void addStartRefForLog(LogCommand logCommand, ObjectId objectId) {
+        logCommand.add(objectId);
     }
 
     public List<GitBlame> blame(Workspace ws, String path) throws AccessDeniedException, GitAPIException {
@@ -992,25 +1146,20 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
             int lineCnt = blameResult.getResultContents().size();
 
-            List<GitBlame> gitBlames = new ArrayList<>();
+            return IntStream.range(0, lineCnt)
+                    .mapToObj(i -> {
+                        org.eclipse.jgit.lib.PersonIdent author = blameResult.getSourceAuthor(i);
+                        RevCommit commit = blameResult.getSourceCommit(i);
 
-            for (int i=0; i<lineCnt; i++) {
-                PersonIdent author = blameResult.getSourceAuthor(i);
-                RevCommit commit = blameResult.getSourceCommit(i);
+                        GitBlame.GitBlameBuilder builder = GitBlame.builder()
+                                .author(mapper.map(author, PersonIdent.class));
 
-                GitBlame blame = new GitBlame();
+                        if (commit != null) {
+                            builder.shortName(commit.abbreviate(ABBREVIATION_LENGTH).name());
+                        }
 
-
-                blame.setAuthor(new GitBlame.PersonIdent(author.getName(), author.getEmailAddress(), author.getWhen().getTime()));
-
-                if (commit != null) {
-                    blame.setShortName(commit.abbreviate(ABBREVIATION_LENGTH).name());
-                }
-
-                gitBlames.add(blame);
-            }
-
-            return gitBlames;
+                        return builder.build();
+                    }).collect(Collectors.toList());
         }
     }
 

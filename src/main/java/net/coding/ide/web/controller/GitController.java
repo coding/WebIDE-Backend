@@ -15,6 +15,10 @@ import net.coding.ide.model.exception.NotFoundException;
 import net.coding.ide.service.GitManager;
 import net.coding.ide.service.WorkspaceManager;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.revwalk.filter.AuthorRevFilter;
+import org.eclipse.jgit.revwalk.filter.CommitTimeRevFilter;
+import org.eclipse.jgit.revwalk.filter.OrRevFilter;
+import org.eclipse.jgit.revwalk.filter.RevFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -314,10 +318,25 @@ public class GitController {
 
     @RequestMapping(value = "{spaceKey}/logs", method = GET)
     public List<GitLog> log(@PathVariable("spaceKey") Workspace ws,
-                            @RequestParam String path,
-                            Pageable pageable) throws GitAPIException, AccessDeniedException {
+                            @RequestParam(required = false, name = "path") String[] paths,
+                            @RequestParam(required = false, name = "ref") String[] refs,
+                            @RequestParam(required = false, name = "author") String[] authors,
+                            @RequestParam(required = false) Long since,
+                            @RequestParam(required = false) Long until,
+                            Pageable pageable) throws GitAPIException, IOException {
 
-        return gitMgr.log(ws, path, pageable);
+        return gitMgr.log(ws,
+                refs,
+                paths,
+                authors,
+                since,
+                until,
+                pageable);
+    }
+
+    @RequestMapping(value = "{spaceKey}/refs", method = GET)
+    public List<GitRef> refs(@PathVariable("spaceKey") Workspace ws) throws GitAPIException, IOException {
+        return gitMgr.refs(ws);
     }
 
     @RequestMapping(value = "{spaceKey}/blame", method = GET)
