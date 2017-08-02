@@ -37,7 +37,9 @@ public class PackageServiceImpl implements PackageService {
         try {
             reader = new JsonReader(new FileReader(path.toFile()));
             JsonObject json = gson.fromJson(reader, JsonObject.class);
-            return gson.fromJson(json.get("meta"), Package.class);
+            Package p = gson.fromJson(json.get("meta"), Package.class);
+            p.setRequirement(Package.Requirement.Required);
+            return p;
         } catch (Exception e) {
             return null;
         }

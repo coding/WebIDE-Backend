@@ -8,6 +8,10 @@ import lombok.Data;
 @Data
 public class Package {
 
+    public enum Requirement {
+        Optional, Required
+    }
+
     private String name;
 
     private String version;
@@ -17,5 +21,7 @@ public class Package {
     private String author;
 
     private String displayName;
+
+    private Requirement requirement;
 
 }
