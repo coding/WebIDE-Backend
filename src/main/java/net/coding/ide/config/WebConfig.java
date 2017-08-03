@@ -11,19 +11,14 @@ import net.coding.ide.web.message.SpringfoxJsonToGsonAdapter;
 import org.modelmapper.Converter;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.web.filter.OrderedHttpPutFormContentFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
-import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
 import org.springframework.http.converter.json.GsonHttpMessageConverter;
-import org.springframework.web.filter.HttpPutFormContentFilter;
 import org.springframework.web.servlet.config.annotation.*;
-import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import springfox.documentation.spring.web.json.Json;
 
 import java.util.List;
@@ -81,5 +76,16 @@ public class WebConfig extends WebMvcConfigurerAdapter {
                 .allowedHeaders("X-Requested-With", "X-Credentials", "X-Sharding-Group", "X-Space-Key", "content-type")
                 .exposedHeaders("Requests-Auth", "Requests-Auth-Url", "Requests-Auth-Return-Url")
                 .allowCredentials(true);
+    }
+
+    @Override
+    public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
+        configurer.favorPathExtension(false);
+    }
+
+    @Override
+    public void configurePathMatch(PathMatchConfigurer configurer) {
+        configurer.setUseSuffixPatternMatch(false);
+        configurer.setUseRegisteredSuffixPatternMatch(true);
     }
 }

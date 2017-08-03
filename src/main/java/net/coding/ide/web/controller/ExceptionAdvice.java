@@ -157,6 +157,13 @@ public class ExceptionAdvice {
         return makeMsg(e);
     }
 
+    @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(NOT_FOUND)
+    @ResponseBody
+    public ResponseEntity<JsonObject> notfoundException(NotFoundException e) {
+        return makeMsgWithHttpStatus(404, e.getMessage());
+    }
+
     private JsonObject makeMsg(Throwable t) {
         JsonObject jsonObject = makeMsg(t.getMessage());
 
