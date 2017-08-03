@@ -56,18 +56,6 @@ public class PackageServiceImplTest {
         List<Package> packages = packageService.findAll();
 
         assertEquals(2, packages.size());
-        assertPackageEquals(packages.get(0),
-                "env",
-                "candy",
-                "0.0.1-alpha06",
-                "WebIDE-Plugin-Env for Coding WebIDE",
-                "Environment");
-        assertPackageEquals(packages.get(1),
-                "temporary",
-                "candy",
-                "0.0.1-alpha.03",
-                "WebIDE-Plugin-Temporary for Coding WebIDE",
-                "temporary");
     }
 
 
@@ -78,11 +66,4 @@ public class PackageServiceImplTest {
         Files.write(manifest.toPath(), content.getBytes());
     }
 
-    private void assertPackageEquals(Package p, String name, String author, String version, String description, String displayName) {
-        Assert.assertEquals(author, p.getAuthor());
-        Assert.assertEquals(name, p.getName());
-        Assert.assertEquals(version, p.getVersion());
-        Assert.assertEquals(description, p.getDescription());
-        Assert.assertEquals(displayName, p.getDisplayName());
-    }
 }
