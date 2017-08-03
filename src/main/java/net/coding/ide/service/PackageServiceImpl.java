@@ -28,8 +28,8 @@ public class PackageServiceImpl implements PackageService {
 
     private Gson gson = new Gson();
 
-    public PackageServiceImpl(@Value("${PACKAGE_HOME}") Path packagesDir) {
-        this.packagesDir = packagesDir;
+    public PackageServiceImpl(@Value("${PACKAGE_HOME}") File packagesDir) {
+        this.packagesDir = packagesDir.toPath();
     }
 
     private Package toPackage(Path path) {
@@ -45,7 +45,7 @@ public class PackageServiceImpl implements PackageService {
         }
     }
 
-    private List<Package> packages;
+    private List<Package> packages = Lists.newArrayList();
 
     public synchronized List<Package> findAll() {
 

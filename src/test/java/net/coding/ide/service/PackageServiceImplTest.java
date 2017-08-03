@@ -18,7 +18,7 @@ public class PackageServiceImplTest {
 
     private Path packages = createTempDirectoryAndDeleteOnExit("packages").toPath();
 
-    private PackageServiceImpl packageService = new PackageServiceImpl(packages);
+    private PackageServiceImpl packageService = new PackageServiceImpl(packages.toFile());
 
     @Test
     public void testFindNoneExistPackages() {

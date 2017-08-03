@@ -21,7 +21,7 @@ public class PackageController {
     @Autowired
     private PackageService packageService;
 
-    @RequestMapping(value = "/{name}/{version}/{fileName:.+}", method = RequestMethod.GET)
+    @RequestMapping(value = "/{name}/{version}/{fileName:.+}", method = RequestMethod.GET, produces = "text/plain")
     public String readPackageFile(@PathVariable String name,
                                   @PathVariable String version,
                                   @PathVariable String fileName) throws IOException {
