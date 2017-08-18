@@ -50,7 +50,7 @@ public class Workspace {
     private ProjectEntity project;
 
     @Getter
-    private String sshUrl;
+    private String url;
 
     /**
      * In the Linux kernel, the limit on the number of nested symlinks is 40.
@@ -70,7 +70,7 @@ public class Workspace {
         this.WorkspaceEntity = wsEntity;
         this.project = wsEntity.getProject();
         this.spaceKey = wsEntity.getSpaceKey();
-        this.sshUrl = project.getSshUrl();
+        this.url = project.getUrl();
         this.baseDir = baseDir.toPath();
         this.workingDir = new File(baseDir, "working-dir").toPath().normalize().toAbsolutePath();
         this.keyDir = new File(baseDir, "ssh-key").toPath();

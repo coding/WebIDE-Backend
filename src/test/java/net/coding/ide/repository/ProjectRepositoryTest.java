@@ -29,7 +29,7 @@ public class ProjectRepositoryTest {
 
     @Test
     public void testFindBySshUrl() throws SQLException {
-        ProjectEntity projectEntity = projectRepo.findBySshUrl("git@coding.net:duwan/coding-ide.git");
+        ProjectEntity projectEntity = projectRepo.findByUrl("git@coding.net:duwan/coding-ide.git");
 
         Assert.assertEquals(0L, (long)projectEntity.getId());
     }

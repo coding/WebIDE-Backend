@@ -32,17 +32,8 @@ public class ProjectEntity extends BaseEntity {
     @Column(name = "F_ICON_URL")
     private String iconUrl;
 
-    @Column(name = "F_GIT_URL")
-    private String gitUrl;
-
-    @Column(name = "F_SSH_URL")
-    private String sshUrl;
-
-    @Column(name = "F_HTTPS_URL")
-    private String httpsUrl;
-
-    @Column(name = "F_HTML_URL")
-    private String htmlUrl;
+    @Column(name = "F_URL")
+    private String url;
 
     @Column(name = "F_OWNER_NAME")
     private String ownerName;

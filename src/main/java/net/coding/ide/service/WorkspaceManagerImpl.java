@@ -151,7 +151,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
             throw new TransportProtocolUnsupportedException("Unsupported git transfer protocol");
         }
 
-        ProjectEntity projectEntity = prjRepo.findBySshUrl(gitUrl);
+        ProjectEntity projectEntity = prjRepo.findByUrl(gitUrl);
 
         if (projectEntity != null) {
             return projectEntity;
@@ -159,7 +159,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
         projectEntity = new ProjectEntity();
 
-        projectEntity.setSshUrl(gitUrl);
+        projectEntity.setUrl(gitUrl);
         setProjectName(projectEntity, gitUrl);
 
         projectEntity.setOwnerName(username);
@@ -200,7 +200,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         if (ws == null) {
             String spaceKey;
             do {
-                spaceKey = randomGene.generate(project.getSshUrl());
+                spaceKey = randomGene.generate(project.getUrl());
             } while (wsRepo.isSpaceKeyExist(spaceKey));
 
             WorkspaceEntity wsEntity = new WorkspaceEntity();
@@ -223,7 +223,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         projectEntity.setName(projectName);
     }
 
-    private boolean checkGitUrl(String url) {
+    protected boolean checkGitUrl(String url) {
         if (url.startsWith("ssh://")) {
             return true;
         } else if (url.startsWith("https://")
@@ -232,14 +232,14 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
                 || url.startsWith("ftp://")
                 || url.startsWith("ftps://")
                 || url.startsWith("rsync://")
-                || url.startsWith("file://")
-                || url.startsWith("/")
                 || url.startsWith("\\")) {
             return false;
         } else if (url.indexOf("@") != -1) {
             return true;
         } else {
-            return false;
+            File dir = new File(url);
+
+            return dir.exists() && dir.isDirectory();
         }
     }
 
