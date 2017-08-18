@@ -109,7 +109,7 @@ public class WorkspaceManagerTest extends BaseServiceTest {
         ProjectEntity prj = new ProjectEntity();
         prj.setName("mine");
         prj.setOwnerName("me");
-        prj.setSshUrl("git@coding.net:kevenyoung03/Test02.git");
+        prj.setUrl("git@coding.net:kevenyoung03/Test02.git");
 
         return prj;
     }
@@ -250,6 +250,17 @@ public class WorkspaceManagerTest extends BaseServiceTest {
         exception.expectMessage(is("Workspace qwerty is not found."));
 
         wsMgr.setup("qwerty");
+    }
+
+    @Test
+    public void testCheckGitUrl() {
+        assertEquals(false, wsMgr.checkGitUrl("https://xxxx"));
+        assertEquals(true, wsMgr.checkGitUrl("ssh://xxxx"));
+        assertEquals(false, wsMgr.checkGitUrl("git://xxxx"));
+        assertEquals(false, wsMgr.checkGitUrl("https://xxxx"));
+        assertEquals(false, wsMgr.checkGitUrl("https://xxxx"));
+        assertEquals(true, wsMgr.checkGitUrl("."));
+        assertEquals(false, wsMgr.checkGitUrl("notExistDir"));
     }
 
     @Test

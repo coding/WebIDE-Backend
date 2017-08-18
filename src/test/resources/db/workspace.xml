@@ -6,9 +6,7 @@
     <T_PROJECT F_ID="0"
                F_NAME="prj0"
                F_ICON_URL="https://dn-coding-net-production-static.qbox.me/f7462ebf-82e9-40f2-b466-06f0297bd479.jpg"
-               F_GIT_URL="git://coding.net/duwan/coding-ide.git"
-               F_SSH_URL="git@coding.net:duwan/coding-ide.git"
-               F_HTTPS_URL="https://coding.net/duwan/coding-ide.git"
+               F_URL="git@coding.net:duwan/coding-ide.git"
                F_OWNER_NAME="duwan"
                />
 

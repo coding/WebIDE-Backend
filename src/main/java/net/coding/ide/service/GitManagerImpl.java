@@ -290,21 +290,19 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
         CredentialsProvider cp = this.getCredentialsProvider(ws);
 
-        String sshUrl = wsRepo.findProjectBySpaceKey(ws.getSpaceKey()).getSshUrl();
+        String url = wsRepo.findProjectBySpaceKey(ws.getSpaceKey()).getUrl();
 
         try (Git git = new Git(repository)){
             git.cloneRepository()
                     .setBare(false)
                     .setCloneAllBranches(true)
                     .setDirectory(ws.getWorkingDir())
-                    .setURI(sshUrl)
+                    .setURI(url)
                     .setCredentialsProvider(cp)
                     .call()
                     .getRepository()
                     .close();
         }
-
-        fetch(ws);
 
         return hasAtLeastOneReference(repository);
 

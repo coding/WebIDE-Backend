@@ -21,7 +21,7 @@ public class DataPopulator {
     public ProjectEntity populateProjectEntity(){
         ProjectEntity project = new ProjectEntity();
         project.setName("test-project");
-        project.setSshUrl("git@git.coding.net:kevenyoung03/Test02.git");
+        project.setUrl("git@git.coding.net:kevenyoung03/Test02.git");
         project.setOwnerName("phying");
         return project;
     }
