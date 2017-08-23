@@ -14,4 +14,6 @@ public interface ProjectRepository extends CrudRepository<ProjectEntity, Long> {
 
     ProjectEntity findByUrl(String sshUrl);
 
+    ProjectEntity findByName(String name);
+
 }

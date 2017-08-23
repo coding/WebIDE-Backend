@@ -323,7 +323,7 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
     public void config(Workspace ws) throws IOException {
         Repository repository = getRepository(ws.getSpaceKey());
         StoredConfig config = repository.getConfig();
-        
+
         /**
          * [user]
          *      email = kevenyoung03@gmail.com

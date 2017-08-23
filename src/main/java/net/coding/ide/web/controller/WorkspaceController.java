@@ -18,8 +18,6 @@ import net.coding.ide.model.exception.WorkspaceMissingException;
 import net.coding.ide.service.GitManager;
 import net.coding.ide.service.WorkspaceManager;
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -39,16 +37,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.net.URLEncoder.encode;
-import static java.util.Collections.synchronizedList;
-import static net.coding.ide.model.HttpSessions.OPENED_WORKSPACE_LIST;
 import static org.springframework.http.HttpHeaders.CONTENT_DISPOSITION;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -89,26 +82,27 @@ public class WorkspaceController {
 
         Workspace ws = wsMgr.setup(spaceKey);
 
-        addWsToSession(session, spaceKey);
-
         log.debug("WorkspaceController create session id => {}", session.getId());
 
         return mapper.map(ws, WorkspaceDTO.class);
     }
 
+    @RequestMapping(value = "/workspaces", method = POST, params = {"projectName", "templateName"})
+    public WorkspaceDTO createFromTemplate(@RequestParam String projectName,
+                                           @RequestParam String templateName) {
+        log.debug("create workspace for template, projectName => {}, templateId => {}", projectName, templateName);
+
+        Workspace ws = wsMgr.createFromTemplate(projectName, templateName);
+
+        return mapper.map(ws, WorkspaceDTO.class);
+    }
+
     @RequestMapping(value = "/workspaces", method = POST)
-    public WorkspaceDTO clone(@RequestParam String url,
-                              HttpSession session) {
+    public WorkspaceDTO clone(@RequestParam String url) {
 
         log.debug("Import workspace for url => {}", url);
 
         Workspace ws = wsMgr.createFromUrl(url);
-
-        String spaceKey = ws.getSpaceKey();
-
-        addWsToSession(session, spaceKey);
-
-        log.debug("WorkspaceController create session id => {}", session.getId());
 
         return mapper.map(ws, WorkspaceDTO.class);
     }
@@ -349,18 +343,5 @@ public class WorkspaceController {
         ws.setEncoding(charset);
 
         return mapper.map(ws, WorkspaceDTO.class);
-    }
-
-    private void addWsToSession(HttpSession session, String spaceKey) {
-        List<Map<String, String>> openedWsList = (List<Map<String, String>>) session.getAttribute(OPENED_WORKSPACE_LIST);
-        if (openedWsList == null) {
-            openedWsList = synchronizedList(new ArrayList<Map<String, String>>());
-            session.setAttribute(OPENED_WORKSPACE_LIST, openedWsList);
-        }
-
-        Map<String, String> ws = new HashMap<>();
-        ws.put("spaceKey", spaceKey);
-
-        openedWsList.add(ws);
     }
 }

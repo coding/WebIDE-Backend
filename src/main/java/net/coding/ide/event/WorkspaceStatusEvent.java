@@ -11,13 +11,12 @@ import org.springframework.context.ApplicationEvent;
  * Created by phy on 2015/1/30.
  */
 @Data
-public class WorkspaceStatusEvent extends ApplicationEvent {
+public class WorkspaceStatusEvent {
 
     private String spaceKey;
 
 
-    public WorkspaceStatusEvent(Object source, String spaceKey){
-        super(source);
+    public WorkspaceStatusEvent(String spaceKey){
         this.spaceKey = spaceKey;
     }
 }
