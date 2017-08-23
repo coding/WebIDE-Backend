@@ -24,6 +24,8 @@ public interface WorkspaceManager {
 
     Workspace createFromUrl(String gitUrl) throws GitCloneAuthFailException;
 
+    Workspace createFromTemplate(String projectName, String templateName);
+
     void delete(String spaceKey);
 
     Workspace getWorkspace(String spaceKey);

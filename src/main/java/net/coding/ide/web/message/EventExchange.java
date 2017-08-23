@@ -63,7 +63,7 @@ public class EventExchange {
         onlineWorkspaceStore.addSession(spaceKey, sessionId);
 
         if (isToBeOnline) {
-            eventPublisher.publishEvent(new WorkspaceOnlineEvent(event, spaceKey));
+            eventPublisher.publishEvent(new WorkspaceOnlineEvent(spaceKey));
         }
     }
 
@@ -85,7 +85,7 @@ public class EventExchange {
         boolean isToBeOffline = onlineWorkspaceStore.isEmpty(spaceKey);
 
         if (isToBeOffline) {
-            eventPublisher.publishEvent(new WorkspaceOfflineEvent(event, spaceKey));
+            eventPublisher.publishEvent(new WorkspaceOfflineEvent(spaceKey));
         }
 
     }

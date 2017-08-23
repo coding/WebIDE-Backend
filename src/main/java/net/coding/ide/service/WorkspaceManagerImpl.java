@@ -29,13 +29,9 @@ import net.coding.ide.utils.TemporaryFileFilter;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.ApplicationEventPublisherAware;
-import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.context.event.EventListener;
@@ -52,11 +48,10 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 import static java.lang.String.format;
 import static net.coding.ide.entity.WorkspaceEntity.WsWorkingStatus.*;
@@ -67,8 +62,7 @@ import static net.coding.ide.entity.WorkspaceEntity.WsWorkingStatus.*;
 @Slf4j
 @Service
 @Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
-public class WorkspaceManagerImpl extends BaseService implements WorkspaceManager, ApplicationEventPublisherAware {
-    private ApplicationEventPublisher publisher;
+public class WorkspaceManagerImpl extends BaseService implements WorkspaceManager {
 
     @Value("${SPACE_HOME}")
     private File spaceHome;
@@ -94,6 +88,12 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
     @Value("${USERNAME}")
     private String username;
 
+    @Value("${REPO_CACHE_HOME}")
+    private String repoCacheHome;
+
+    @Autowired
+    private ApplicationEventPublisher publisher;
+
     private Map<String, WorkspaceWatcher> watcherMap = Maps.newHashMap();
 
     private Cache<String, Workspace> wsCache = CacheBuilder
@@ -102,14 +102,6 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
             .maximumSize(100)
             .softValues()
             .build();
-
-    public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
-        this.publisher = publisher;
-    }
-
-    public void setSpaceHome(File spaceHome) {
-        this.spaceHome = spaceHome;
-    }
 
     @Override
     public Workspace setup(String spaceKey) {
@@ -145,6 +137,21 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
     }
 
+    private ProjectEntity doCreateProjectWithName(String projectName, String gitUrl) {
+        ProjectEntity projectEntity = prjRepo.findByName(projectName);
+
+        if (projectEntity != null) {
+            return projectEntity;
+        }
+
+        projectEntity = new ProjectEntity();
+        projectEntity.setName(projectName);
+        projectEntity.setUrl(gitUrl);
+        projectEntity.setIconUrl(ProjectUtil.randomIcon());
+
+        return prjRepo.save(projectEntity);
+    }
+
     private ProjectEntity doCreateProject(String gitUrl) {
 
         if (!checkGitUrl(gitUrl)) {
@@ -175,7 +182,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
         ProjectEntity projectEntity = createProject(gitUrl.trim());
 
-        WorkspaceEntity wsEntity = createExternalWorkspaceEntity(projectEntity);
+        WorkspaceEntity wsEntity = createWorkspaceEntity(projectEntity);
 
         String spaceKey = wsEntity.getSpaceKey();
 
@@ -190,11 +197,38 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         return ws;
     }
 
-    private WorkspaceEntity createExternalWorkspaceEntity(final ProjectEntity project) {
-        return transactionTemplate.execute(status -> doCreateExternalWorkspaceEntity(project));
+    public Workspace createFromTemplate(String projectName, String templateName) {
+        // todo: fix always demo
+        ProjectEntity projectEntity = transactionTemplate.execute(status ->
+                doCreateProjectWithName(projectName, buildTemplateUrl("demo")));
+
+        WorkspaceEntity wsEntity = createWorkspaceEntity(projectEntity);
+        String spaceKey = wsEntity.getSpaceKey();
+
+        File baseDir = getBaseDir(spaceKey);
+
+        Workspace ws = new Workspace(wsEntity, baseDir);
+
+        initWorkspace(ws);
+
+        wsCache.put(spaceKey, ws);
+
+        return ws;
     }
 
-    private WorkspaceEntity doCreateExternalWorkspaceEntity(final ProjectEntity project) {
+    private String buildTemplateUrl(String templateName) {
+        File template = new File(repoCacheHome, templateName);
+
+        if ( ! template.isDirectory() || ! template.exists() ) {
+            throw new NotFoundException("could not found template");
+        } else return template.getAbsolutePath();
+    }
+
+    private WorkspaceEntity createWorkspaceEntity(final ProjectEntity project) {
+        return transactionTemplate.execute(status -> doCreateWorkspaceEntity(project));
+    }
+
+    private WorkspaceEntity doCreateWorkspaceEntity(final ProjectEntity project) {
         WorkspaceEntity ws = wsRepo.findNotDeletedByProject(project);
 
         if (ws == null) {
@@ -236,6 +270,8 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
             return false;
         } else if (url.indexOf("@") != -1) {
             return true;
+        } else if (url.startsWith("file://")) {
+            return true;
         } else {
             File dir = new File(url);
 
@@ -252,7 +288,7 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
         File baseDir = getBaseDir(spaceKey);
 
-        publisher.publishEvent(new WorkspaceDeleteEvent(this, spaceKey));
+        publisher.publishEvent(new WorkspaceDeleteEvent(spaceKey));
 
         wsCache.invalidate(spaceKey);
 
