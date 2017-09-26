@@ -46,10 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.Comparator;
@@ -57,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static net.coding.ide.entity.WorkspaceEntity.WsWorkingStatus.*;
@@ -444,6 +442,11 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         // set isDirectory, directoriesCount and filesCount
         boolean isDirectory = Files.isDirectory(p); // file not exist will be false
 
+        if (isDirectory) {
+            fileInfo.setDirectoriesCount(count(p, f -> f.isDirectory()));
+            fileInfo.setFilesCount(count(p, f -> f.isFile()));
+        }
+
         fileInfo.setDir(isDirectory);
         fileInfo.setPath(nPath);
         fileInfo.setContentType(FileUtil.getContentType(p.toFile()));
@@ -453,11 +456,27 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         if (!isSymbolicLink
                 || (isSymbolicLink && targetExist)) {
             updateFileTime(fileInfo, p);
+
+            // update file readable and writable
+            updateReadableAndWritable(fileInfo, p);
         } else {
             updateFileTime(fileInfo, p, LinkOption.NOFOLLOW_LINKS);
+
+            // update file readable and writable
+            fileInfo.setReadable(false);
+            fileInfo.setWritable(false);
         }
 
         return fileInfo;
+    }
+
+    private void updateReadableAndWritable(FileInfo fileInfo, Path p) {
+        // set readable, writable
+
+        File file = p.toFile();
+
+        fileInfo.setReadable(file.canRead());
+        fileInfo.setWritable(file.canWrite());
     }
 
     private void updateFileTime(FileInfo fileInfo, Path p) throws IOException {
@@ -481,6 +500,25 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
         fileInfo.setLastModified(lm.withZone(DateTimeZone.getDefault()));
         DateTime la = new DateTime(attr.lastAccessTime().toMillis(), timeZone);
         fileInfo.setLastAccessed(la.withZone(DateTimeZone.getDefault()));
+    }
+
+    /**
+     * 统计目录下指定类型文件的数目
+     * <p>
+     * When following links, and the attributes of the target cannot
+     * be read, then this method attempts to get the {@code BasicFileAttributes}
+     * of the link
+     *
+     * @throws IOException
+     */
+    private int count(Path p, Predicate<File> filter) throws IOException {
+        try (Stream<Path> pathStream = Files.walk(p, 1, FileVisitOption.FOLLOW_LINKS)) {
+            return (int) pathStream
+                    .filter(f -> !f.equals(p)) // walk method will start from p
+                    .map(Path::toFile)
+                    .filter(filter)
+                    .count();
+        }
     }
 
     @Override
