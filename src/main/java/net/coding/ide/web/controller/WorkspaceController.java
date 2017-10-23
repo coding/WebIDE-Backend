@@ -17,6 +17,7 @@ import net.coding.ide.model.Workspace;
 import net.coding.ide.model.exception.WorkspaceMissingException;
 import net.coding.ide.service.GitManager;
 import net.coding.ide.service.WorkspaceManager;
+import org.apache.commons.lang3.StringUtils;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,10 +27,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
@@ -49,6 +47,7 @@ import static java.lang.String.format;
 import static java.net.URLEncoder.encode;
 import static java.util.Collections.synchronizedList;
 import static net.coding.ide.model.HttpSessions.OPENED_WORKSPACE_LIST;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.springframework.http.HttpHeaders.CONTENT_DISPOSITION;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -184,27 +183,31 @@ public class WorkspaceController {
     @RequestMapping(value = "/workspaces/{spaceKey}/file/read", method = GET)
     public FileDTO read(@PathVariable("spaceKey") Workspace ws,
                         @RequestParam String path,
+                        @RequestParam(required = false) String encoding,
                         @RequestParam(defaultValue = "false") boolean base64) throws Exception {
 
-        FileInfo fileInfo = wsMgr.getFileInfo(ws, path);
+        final String finalEncoding = StringUtils.isBlank(encoding) ?  ws.getEncoding() : encoding;
 
-        return FileDTO.of(path,
-                ws.read(path, base64),
-                base64,
-                fileInfo.getLastModified().getMillis());
+        return wsMgr.readFile(ws, path, finalEncoding, base64);
     }
 
     @RequestMapping(value = "/workspaces/{spaceKey}/files", method = PUT)
     public FileDTO write(@PathVariable("spaceKey") Workspace ws,
                          @RequestParam String path,
                          @RequestParam String content,
+                         @RequestParam(required = false) String encoding,
                          @RequestParam(defaultValue = "false") boolean base64,
                          @RequestParam(defaultValue = "true") boolean override,
                          @RequestParam(defaultValue = "true") boolean createParent) throws Exception {
-        ws.write(path, content, base64, override, createParent);
+
+        final String finalEncoding = isNotBlank(encoding) ? encoding : ws.getEncoding();
+
+        ws.write(path, content, finalEncoding, base64, override, createParent);
+
 
         FileDTO fileDTO =  FileDTO.of(path,
-                ws.read(path, base64),
+                ws.read(path, finalEncoding, base64),
+                finalEncoding,
                 base64);
 
         if (ws.exists(path)) {

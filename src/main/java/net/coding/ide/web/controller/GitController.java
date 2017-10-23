@@ -14,6 +14,7 @@ import net.coding.ide.model.exception.GitOperationException;
 import net.coding.ide.model.exception.NotFoundException;
 import net.coding.ide.service.GitManager;
 import net.coding.ide.service.WorkspaceManager;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.revwalk.filter.AuthorRevFilter;
 import org.eclipse.jgit.revwalk.filter.CommitTimeRevFilter;
@@ -310,8 +311,12 @@ public class GitController {
     public FileDTO read(@PathVariable("spaceKey") Workspace ws,
                         @RequestParam String ref,
                         @RequestParam String path,
+                        @RequestParam String encoding,
                         @RequestParam(defaultValue = "false") boolean base64) throws IOException {
-        String content = gitMgr.readFileFromRef(ws, ref, path, base64);
+
+        final String finalEncoding = StringUtils.isBlank(encoding) ?  ws.getEncoding() : encoding;
+
+        String content = gitMgr.readFileFromRef(ws, ref, path, finalEncoding, base64);
 
         return FileDTO.of(path, content, base64);
     }

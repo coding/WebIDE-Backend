@@ -10,6 +10,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.jcraft.jsch.JSchException;
 import lombok.extern.slf4j.Slf4j;
+import net.coding.ide.dto.FileDTO;
 import net.coding.ide.entity.ProjectEntity;
 import net.coding.ide.entity.WorkspaceEntity;
 import net.coding.ide.event.WorkspaceDeleteEvent;
@@ -58,6 +59,7 @@ import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static net.coding.ide.entity.WorkspaceEntity.WsWorkingStatus.*;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 /**
  * Created by vangie on 14/11/11.
@@ -477,6 +479,19 @@ public class WorkspaceManagerImpl extends BaseService implements WorkspaceManage
 
         fileInfo.setReadable(file.canRead());
         fileInfo.setWritable(file.canWrite());
+    }
+
+    @Override
+    public FileDTO readFile(Workspace ws, String path, String encodingParam, boolean base64) throws Exception {
+        FileInfo fileInfo = getFileInfo(ws, path);
+
+        final String encoding = isBlank(encodingParam) ?  ws.getEncoding() : encodingParam;
+
+        return FileDTO.of(path,
+                ws.read(path, encoding, base64),
+                encoding,
+                base64,
+                fileInfo.getLastModified().getMillis());
     }
 
     private void updateFileTime(FileInfo fileInfo, Path p) throws IOException {
