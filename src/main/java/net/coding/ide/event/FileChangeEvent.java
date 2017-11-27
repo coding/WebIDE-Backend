@@ -5,6 +5,7 @@
 package net.coding.ide.event;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import net.coding.ide.model.FileInfo;
 import net.coding.ide.model.Workspace;
@@ -14,18 +15,15 @@ import net.coding.ide.model.Workspace;
  */
 @Data
 @NoArgsConstructor
+@EqualsAndHashCode
 public class FileChangeEvent {
 
-    protected Workspace workspace;
+    protected String spaceKey;
 
     protected FileInfo fileInfo;
 
-    public FileChangeEvent(Workspace source, FileInfo fileInfo){
-        this.workspace = source;
+    public FileChangeEvent(String spaceKey, FileInfo fileInfo) {
+        this.spaceKey = spaceKey;
         this.fileInfo = fileInfo;
-    }
-
-    public int hashCode() {
-        return fileInfo.hashCode();
     }
 }
