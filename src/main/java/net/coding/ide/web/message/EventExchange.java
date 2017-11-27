@@ -92,8 +92,7 @@ public class EventExchange {
 
     @EventListener
     public void onFileChanged(FileChangeEvent event) {
-        Workspace ws = event.getWorkspace();
-        String spaceKey = ws.getSpaceKey();
+        String spaceKey = event.getSpaceKey();
         FileInfo fileInfo = event.getFileInfo();
 
         JsonObject jsonObj = new JsonObject();

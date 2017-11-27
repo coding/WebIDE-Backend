@@ -155,7 +155,7 @@ public class WorkspaceWatcher extends Thread {
 
                         try {
                             FileInfo fileInfo = wsMgr.getFileInfo(ws, relativePath.toString());
-                            fileChangeEvent = new FileCreateEvent(ws, fileInfo);
+                            fileChangeEvent = new FileCreateEvent(ws.getSpaceKey(), fileInfo);
 
                         } catch (NoSuchFileException e) {
                             log.debug("file " + fileName + " not found.", e);
@@ -166,7 +166,7 @@ public class WorkspaceWatcher extends Thread {
 
                         try {
                             FileInfo fileInfo = wsMgr.getFileInfo(ws, relativePath.toString());
-                            fileChangeEvent = new FileModifyEvent(ws, fileInfo);
+                            fileChangeEvent = new FileModifyEvent(ws.getSpaceKey(), fileInfo);
                         } catch (NoSuchFileException e) {
                             log.debug("file " + fileName + " not found.", e);
                         }
@@ -177,7 +177,7 @@ public class WorkspaceWatcher extends Thread {
                         FileInfo fileInfo = new FileInfo();
                         fileInfo.setName(fileName.toString());
                         fileInfo.setPath(path);
-                        fileChangeEvent = new FileDeleteEvent(ws, fileInfo);
+                        fileChangeEvent = new FileDeleteEvent(ws.getSpaceKey(), fileInfo);
 
                         watchedPathStore.remove(ws.getSpaceKey(), path);
 
