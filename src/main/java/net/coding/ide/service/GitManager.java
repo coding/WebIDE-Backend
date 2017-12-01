@@ -125,5 +125,7 @@ public interface GitManager {
 
     String readFileFromRef(Workspace ws, String ref, String path, boolean base64) throws IOException;
 
+    String readFileFromRef(Workspace ws, String ref, String path, String encoding, boolean base64) throws IOException;
+
     void reset(Workspace ws, String ref, ResetType resetType) throws GitAPIException;
 }

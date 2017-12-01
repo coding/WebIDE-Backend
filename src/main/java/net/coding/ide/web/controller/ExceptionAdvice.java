@@ -25,6 +25,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 
 import static java.lang.String.format;
 import static org.springframework.http.HttpStatus.*;
@@ -37,6 +38,12 @@ public class ExceptionAdvice {
 
     @Value("${UPLOAD_FILE_SIZE_LIMIT}")
     private int fileSizeLimit;
+
+    @ExceptionHandler(UnsupportedEncodingException.class)
+    @ResponseBody
+    public ResponseEntity<JsonObject> unsupportedEncodingException(UnsupportedEncodingException e) {
+        return makeMsgWithHttpStatus(BAD_REQUEST.value(), "unsupported encoding: " + e.getMessage());
+    }
 
     @ExceptionHandler(WorkspaceIOException.class)
     @ResponseStatus(INTERNAL_SERVER_ERROR)

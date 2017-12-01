@@ -698,15 +698,15 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
         String content = readBlobContent(repository, base, ws.getEncoding());
 
-        ws.write(path + CONFLIX_FILE_BASE_SUFFIX, content, false, true, false);
+        ws.write(path + CONFLIX_FILE_BASE_SUFFIX, content, ws.getEncoding(), false, true, false);
 
         content = readBlobContent(repository, local, ws.getEncoding());
 
-        ws.write(path + CONFLIX_FILE_LOCAL_SUFFIX, content, false, true, false);
+        ws.write(path + CONFLIX_FILE_LOCAL_SUFFIX, content, ws.getEncoding(), false, true, false);
 
         content = readBlobContent(repository, remote, ws.getEncoding());
 
-        ws.write(path + CONFLIX_FILE_REMOTE_SUFFIX, content, false, true, true);
+        ws.write(path + CONFLIX_FILE_REMOTE_SUFFIX, content, ws.getEncoding(), false, true, true);
     }
 
 
@@ -727,11 +727,15 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
         return content.toString(encoding);
     }
 
+    public String readFileFromRef(Workspace ws, String ref, String path, boolean base64) throws IOException {
+        return readFileFromRef(ws, ref, path, ws.getEncoding(), base64);
+    }
+
     /**
      * 读取某次提交的的某个文件的内容
      */
     @Override
-    public String readFileFromRef(Workspace ws, String ref, String path, boolean base64) throws IOException {
+    public String readFileFromRef(Workspace ws, String ref, String path, String encoding, boolean base64) throws IOException {
         Repository repository = getRepository(ws.getSpaceKey());
 
         ObjectId objectId = repository.resolve(ref);
@@ -770,7 +774,11 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
                 if (base64) {
                     return BaseEncoding.base64().encode(content);
                 } else {
-                    return new String(content, ws.getEncoding());
+                    if (StringUtils.isNotBlank(encoding)) {
+                        return new String(content, encoding);
+                    } else {
+                        return new String(content, ws.getEncoding());
+                    }
                 }
             }
         }
@@ -810,9 +818,9 @@ public class GitManagerImpl implements GitManager, ApplicationEventPublisherAwar
 
         ConflictFile response = new ConflictFile();
 
-        response.setBase(ws.read(basePath, base64));
-        response.setLocal(ws.read(localPath, base64));
-        response.setRemote(ws.read(remotePath, base64));
+        response.setBase(ws.read(basePath, ws.getEncoding(), base64));
+        response.setLocal(ws.read(localPath, ws.getEncoding(), base64));
+        response.setRemote(ws.read(remotePath, ws.getEncoding(), base64));
 
         return response;
     }

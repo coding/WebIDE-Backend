@@ -19,22 +19,32 @@ public class FileDTO {
     @NonNull
     private String path;
 
-    @NonNull
     private String content;
 
-    @NonNull
     private Boolean base64;
 
-    private long lastModified;
+    private Long lastModified;
 
-    private FileDTO(String path, String content, Boolean base64, long lastModified) {
+    private String encoding;
+
+    private FileDTO(String path, String content, String encoding, Boolean base64, Long lastModified) {
         this.path = path;
         this.content = content;
         this.base64 = base64;
         this.lastModified = lastModified;
+        this.encoding = encoding;
     }
 
-    public static FileDTO of(String path, String content, Boolean base64, long lastModified) {
-        return new FileDTO(path, content, base64, lastModified);
+    public static FileDTO of(String path, String content, String encoding, Boolean base64, Long lastModified) {
+        return new FileDTO(path, content, encoding, base64, lastModified);
     }
+
+    public static FileDTO of(String path, String content, Boolean base64) {
+        return new FileDTO(path, content, null, base64, null);
+    }
+
+    public static FileDTO of(String path, String content, String encoding, Boolean base64) {
+        return new FileDTO(path, content, encoding, base64, null);
+    }
+
 }

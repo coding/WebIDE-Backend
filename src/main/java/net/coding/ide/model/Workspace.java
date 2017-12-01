@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.io.Files.toByteArray;
+import static org.apache.commons.lang.StringUtils.isNotBlank;
 
 /**
  * Created by vangie on 14/11/10.
@@ -97,6 +98,13 @@ public class Workspace {
     }
 
     public String read(String path, boolean base64) throws IOException {
+        return read(path, getEncoding(), base64);
+    }
+
+    /**
+     * read file by specific encoding or workspace default encoding
+     */
+    public String read(String path, String encodingParam, boolean base64) throws IOException {
         Path p = this.getPath(path);
 
         if (Files.isSymbolicLink(p) && !linkTargetExist(p)) {
@@ -110,7 +118,11 @@ public class Workspace {
                 return BaseEncoding.base64().encode(content);
             }
 
-            return new String(content, getEncoding());
+            if (isNotBlank(encodingParam)) {
+                return new String(content, encodingParam);
+            } else {
+                return new String(content, encoding);
+            }
         } catch (FileNotFoundException e) {
             throw new WorkspaceIOException(path + " not found", e);
         }
@@ -233,7 +245,12 @@ public class Workspace {
         return keyDir.toFile();
     }
 
+
     public void write(String path, String content, boolean base64, boolean override, boolean createParent) throws IOException {
+        write(path, content, encoding, base64, override, createParent);
+    }
+
+    public void write(String path, String content, String encodingParam, boolean base64, boolean override, boolean createParent) throws IOException {
         Path p = this.getPath(path);
 
         if (Files.isSymbolicLink(p) && !linkTargetExist(p)) {
@@ -254,7 +271,8 @@ public class Workspace {
         BufferedWriter bw = null;
 
         try {
-            bw = Files.newBufferedWriter(p, Charset.forName(getEncoding()));
+            final String finalEncoding = isNotBlank(encodingParam) ? encodingParam : getEncoding();
+            bw = Files.newBufferedWriter(p, Charset.forName(finalEncoding));
 
             if (override) {
                 bw.write(decodeContent);
