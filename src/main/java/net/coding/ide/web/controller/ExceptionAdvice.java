@@ -36,8 +36,8 @@ import static org.springframework.http.HttpStatus.*;
 @ControllerAdvice
 public class ExceptionAdvice {
 
-    @Value("${UPLOAD_FILE_SIZE_LIMIT}")
-    private int fileSizeLimit;
+    @Value("${spring.http.multipart.max-file-size}")
+    private String fileSizeLimit;
 
     @ExceptionHandler(UnsupportedEncodingException.class)
     @ResponseBody
@@ -105,7 +105,7 @@ public class ExceptionAdvice {
     @ResponseStatus(PAYLOAD_TOO_LARGE)
     @ResponseBody
     public JsonObject maxUploadSizeExceededException(MaxUploadSizeExceededException e) {
-        return makeMsg(format("Upload file size is limit to %d Mb.", fileSizeLimit));
+        return makeMsg(format("Upload file size is limit to %s.", fileSizeLimit));
     }
 
     @ExceptionHandler(GitCloneAuthFailException.class)
